@@ -4,13 +4,17 @@
     "slug": "InvoiceBill",
     "version": "1.0.0",
     "orientation": "portrait",
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER"
+    },
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#2C264D"
     },
     "ios": {
       "supportsTablet": true
@@ -25,6 +29,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "datePicker": {
+              "colorAccent": { "light": "#7C3AED" },
+              "colorControlActivated": { "light": "#7C3AED" }
+            }
+          }
+        }
+      ]
+    ]
   }
 }
