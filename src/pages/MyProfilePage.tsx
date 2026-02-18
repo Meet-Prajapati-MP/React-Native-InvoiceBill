@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { colors } from '../theme/colors';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
 interface MyProfilePageProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          <AnimatedSlideIn delay={80}>
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
@@ -48,7 +50,9 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
               </TouchableOpacity>
             </View>
           </View>
+          </AnimatedSlideIn>
 
+          <AnimatedSlideIn delay={160}>
           <View style={styles.form}>
             <View style={styles.infoCard}>
               <View style={styles.infoIcon}>
@@ -114,6 +118,7 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
               </View>
             </View>
           </View>
+          </AnimatedSlideIn>
 
           <Button variant="outline" onPress={onClose} style={styles.doneBtn}>
             Done

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,8 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
-  TextInput,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -16,6 +16,8 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
+import { AnimatedSection } from '../components/AnimatedSection';
 
 interface Item {
   id: string;
@@ -24,23 +26,50 @@ interface Item {
   description?: string;
 }
 
+/** Dummy items for review when API returns empty */
+const DUMMY_ITEMS: Item[] = [
+  { id: 'di1', name: 'Web Design - Landing Page', rate: 15000, description: 'Responsive landing page design' },
+  { id: 'di2', name: 'Logo Design', rate: 5000, description: 'Brand logo and variations' },
+  { id: 'di3', name: 'Consulting - Hourly', rate: 2500, description: 'Per hour consulting rate' },
+  { id: 'di4', name: 'Mobile App Development', rate: 85000, description: 'Full-stack mobile app' },
+  { id: 'di5', name: 'Content Writing', rate: 1500, description: 'Per 1000 words' },
+  { id: 'di6', name: 'SEO Audit', rate: 8000, description: 'Full website audit' },
+];
+
 interface ItemListPageProps {
   isOpen: boolean;
   onClose: () => void;
+  onBeforeAddItem?: () => boolean;
 }
 
-const INITIAL_ITEMS: Item[] = [
-  { id: '1', name: 'Website Design', rate: 15000, description: 'Full website design and development' },
-  { id: '2', name: 'Logo Design', rate: 5000, description: 'Professional logo with brand guidelines' },
-];
-
-export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
-  const [items, setItems] = useState<Item[]>(INITIAL_ITEMS);
+export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageProps) {
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [rate, setRate] = useState('');
   const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get<(Item & { rate?: string })[]>('/items');
+      const list = Array.isArray(data)
+        ? data.map((i) => ({ ...i, rate: typeof i.rate === 'number' ? i.rate : parseFloat(String(i.rate || 0)) }))
+        : [];
+      setItems(list.length > 0 ? list : DUMMY_ITEMS);
+    } catch {
+      setItems(DUMMY_ITEMS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) fetchItems();
+  }, [isOpen, fetchItems]);
 
   const resetForm = () => {
     setShowForm(false);
@@ -51,6 +80,7 @@ export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
   };
 
   const handleAddNew = () => {
+    if (onBeforeAddItem && !onBeforeAddItem()) return;
     resetForm();
     setShowForm(true);
   };
@@ -65,27 +95,41 @@ export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
 
   const handleCancel = () => resetForm();
 
-  const handleSave = () => {
-    const rateNum = parseInt(rate.replace(/[^0-9]/g, ''), 10) || 0;
+  const handleSave = async () => {
+    const rateNum = parseFloat(rate.replace(/[^0-9.]/g, '')) || parseInt(rate.replace(/[^0-9]/g, ''), 10) || 0;
     if (!name.trim()) return;
-
-    if (editingId) {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === editingId ? { ...i, name: name.trim(), rate: rateNum, description: description.trim() || undefined } : i
-        )
-      );
-    } else {
-      setItems((prev) => [
-        ...prev,
-        { id: Date.now().toString(), name: name.trim(), rate: rateNum, description: description.trim() || undefined },
-      ]);
+    setSaving(true);
+    try {
+      if (editingId) {
+        const { data } = await api.patch<Item>(`/items/${editingId}`, {
+          name: name.trim(),
+          rate: rateNum,
+          description: description.trim() || undefined,
+        });
+        setItems((prev) => prev.map((i) => (i.id === editingId ? { ...data, rate: rateNum } : i)));
+      } else {
+        const { data } = await api.post<Item>('/items', {
+          name: name.trim(),
+          rate: rateNum,
+          description: description.trim() || undefined,
+        });
+        setItems((prev) => [{ ...data, rate: rateNum }, ...prev]);
+      }
+      resetForm();
+    } catch {
+      /* show error in UI if needed */
+    } finally {
+      setSaving(false);
     }
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/items/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } catch {
+      /* ignore */
+    }
   };
 
   if (!isOpen) return null;
@@ -101,8 +145,14 @@ export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {items.map((item) => (
-            <Card key={item.id} style={styles.itemCard}>
+          {loading && (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.purple} />
+            </View>
+          )}
+          {!loading && items.map((item, i) => (
+            <AnimatedSection key={item.id} index={i} delay={0}>
+            <Card style={styles.itemCard}>
               <TouchableOpacity style={styles.itemContent} onPress={() => handleEdit(item)} activeOpacity={0.7}>
                 <View style={styles.itemText}>
                   <Text style={styles.itemName}>{item.name}</Text>
@@ -118,6 +168,7 @@ export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
                 </TouchableOpacity>
               </TouchableOpacity>
             </Card>
+            </AnimatedSection>
           ))}
 
           {showForm && (
@@ -130,8 +181,8 @@ export function ItemListPage({ isOpen, onClose }: ItemListPageProps) {
                 <Button variant="outline" onPress={handleCancel} style={styles.formBtn}>
                   Cancel
                 </Button>
-                <Button onPress={handleSave} style={styles.formBtn}>
-                  Save Item
+                <Button onPress={handleSave} style={styles.formBtn} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Item'}
                 </Button>
               </View>
             </View>
@@ -167,6 +218,7 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.navy },
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
+  loadingWrap: { paddingVertical: 48, alignItems: 'center' },
   itemCard: { marginBottom: 12 },
   itemContent: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   itemText: { flex: 1 },

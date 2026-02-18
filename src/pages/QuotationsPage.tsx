@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { AnimatedSection } from '../components/AnimatedSection';
 
 interface Quotation {
   id: string;
@@ -26,16 +27,21 @@ interface Quotation {
 }
 
 const sentQuotations: Quotation[] = [
-  { id: '1', quoNumber: 'QUO-006', client: 'Design Hub', amount: 55000, date: 'Oct 5, 2023', version: 'v1', validUntil: 'Nov 5, 2023', viewStatus: 'Not viewed yet', status: 'converted', type: 'sent' },
-  { id: '2', quoNumber: 'QUO-005', client: 'Beta Systems', amount: 35000, date: 'Oct 4, 2023', version: 'v2', validUntil: 'Nov 4, 2023', viewStatus: 'Viewed 2 times • Oct 21, 3:00 PM', status: 'draft', type: 'sent' },
-  { id: '3', quoNumber: 'QUO-004', client: 'Tech Solutions Ltd', amount: 45000, date: 'Oct 3, 2023', version: 'v1', validUntil: 'Nov 3, 2023', viewStatus: 'Viewed by client • Oct 19, 10:30 AM', status: 'sent', type: 'sent' },
-  { id: '4', quoNumber: 'QUO-003', client: 'Creative Studio', amount: 75000, date: 'Oct 2, 2023', version: 'v1', validUntil: 'Nov 2, 2023', viewStatus: 'Viewed by client • Oct 18, 2:15 PM', status: 'accepted', type: 'sent' },
-  { id: '5', quoNumber: 'QUO-002', client: 'Global Services', amount: 25000, date: 'Oct 1, 2023', version: 'v1', validUntil: 'Nov 1, 2023', viewStatus: 'Not viewed yet', status: 'rejected', type: 'sent' },
+  { id: '1', quoNumber: 'QUO-012', client: 'Design Hub', amount: 85000, date: '12 Feb, 2026', version: 'v2', validUntil: '12 Mar, 2026', viewStatus: 'Viewed 3 times • 14 Feb, 2:30 PM', status: 'sent', type: 'sent' },
+  { id: '2', quoNumber: 'QUO-011', client: 'Tech Solutions Ltd', amount: 120000, date: '10 Feb, 2026', version: 'v1', validUntil: '10 Mar, 2026', viewStatus: 'Not viewed yet', status: 'draft', type: 'sent' },
+  { id: '3', quoNumber: 'QUO-010', client: 'Creative Studio', amount: 55000, date: '8 Feb, 2026', version: 'v1', validUntil: '8 Mar, 2026', viewStatus: 'Viewed by client • 9 Feb, 11:00 AM', status: 'accepted', type: 'sent' },
+  { id: '4', quoNumber: 'QUO-009', client: 'Global Services', amount: 42000, date: '5 Feb, 2026', version: 'v2', validUntil: '5 Mar, 2026', viewStatus: 'Viewed 2 times • 6 Feb, 4:15 PM', status: 'converted', type: 'sent' },
+  { id: '5', quoNumber: 'QUO-008', client: 'Alpha Corp', amount: 95000, date: '3 Feb, 2026', version: 'v1', validUntil: '3 Mar, 2026', viewStatus: 'Not viewed yet', status: 'rejected', type: 'sent' },
+  { id: '6', quoNumber: 'QUO-007', client: 'Beta Systems', amount: 68000, date: '1 Feb, 2026', version: 'v1', validUntil: '1 Mar, 2026', viewStatus: 'Viewed by client • 2 Feb, 9:30 AM', status: 'sent', type: 'sent' },
+  { id: '7', quoNumber: 'QUO-006', client: 'Marketing Agency', amount: 35000, date: '28 Jan, 2026', version: 'v3', validUntil: '28 Feb, 2026', viewStatus: 'Viewed 1 time • 29 Jan, 3:00 PM', status: 'accepted', type: 'sent' },
 ];
 
 const receivedQuotations: Quotation[] = [
-  { id: '6', quoNumber: 'QUO-R001', client: 'Alpha Corp', amount: 120000, date: 'Oct 8, 2023', version: 'v1', validUntil: 'Nov 8, 2023', viewStatus: 'Viewed 1 time • Oct 22, 9:00 AM', status: 'sent', type: 'received' },
-  { id: '7', quoNumber: 'QUO-R002', client: 'Creative Agency', amount: 68000, date: 'Oct 7, 2023', version: 'v2', validUntil: 'Nov 7, 2023', viewStatus: 'Not viewed yet', status: 'draft', type: 'received' },
+  { id: '8', quoNumber: 'QUO-R005', client: 'Design Studio', amount: 78000, date: '11 Feb, 2026', version: 'v1', validUntil: '11 Mar, 2026', viewStatus: 'Viewed 2 times • 12 Feb, 10:00 AM', status: 'sent', type: 'received' },
+  { id: '9', quoNumber: 'QUO-R004', client: 'Hosting Provider', amount: 24000, date: '9 Feb, 2026', version: 'v1', validUntil: '9 Mar, 2026', viewStatus: 'Not viewed yet', status: 'draft', type: 'received' },
+  { id: '10', quoNumber: 'QUO-R003', client: 'Software Tools Inc', amount: 156000, date: '6 Feb, 2026', version: 'v2', validUntil: '6 Mar, 2026', viewStatus: 'Viewed by client • 7 Feb, 2:45 PM', status: 'accepted', type: 'received' },
+  { id: '11', quoNumber: 'QUO-R002', client: 'Creative Agency', amount: 52000, date: '4 Feb, 2026', version: 'v1', validUntil: '4 Mar, 2026', viewStatus: 'Viewed 1 time • 5 Feb, 11:20 AM', status: 'sent', type: 'received' },
+  { id: '12', quoNumber: 'QUO-R001', client: 'Consulting Partners', amount: 98000, date: '2 Feb, 2026', version: 'v1', validUntil: '2 Mar, 2026', viewStatus: 'Not viewed yet', status: 'rejected', type: 'received' },
 ];
 
 interface QuotationsPageProps {
@@ -121,11 +127,11 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote }: QuotationsPageP
             <Text style={styles.emptyText}>No quotations found</Text>
           </View>
         ) : (
-          filtered.map((q) => {
+          filtered.map((q, i) => {
             const sc = getStatusStyle(q.status);
             return (
+              <AnimatedSection key={q.id} index={i} delay={0}>
               <TouchableOpacity
-                key={q.id}
                 onPress={() => onSelectQuote(q)}
                 style={styles.card}
                 activeOpacity={0.7}
@@ -172,6 +178,7 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote }: QuotationsPageP
                   </View>
                 </View>
               </TouchableOpacity>
+              </AnimatedSection>
             );
           })
         )}

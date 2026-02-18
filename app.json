@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "InvoiceBill",
-    "slug": "InvoiceBill",
+    "slug": "invoicebill-trustopay",
     "version": "1.0.0",
     "orientation": "portrait",
     "updates": {
@@ -12,7 +12,6 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "cover",
       "backgroundColor": "#2C264D"
     },
@@ -25,23 +24,44 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.meetprajapati.invoicebilltrustopay"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ],
+      [
         "@react-native-community/datetimepicker",
         {
           "android": {
             "datePicker": {
-              "colorAccent": { "light": "#7C3AED" },
-              "colorControlActivated": { "light": "#7C3AED" }
+              "colorAccent": {
+                "light": "#7C3AED"
+              },
+              "colorControlActivated": {
+                "light": "#7C3AED"
+              }
             }
           }
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a7ab8a70-3204-4ef7-aafa-ed386f5de5df"
+      }
+    }
   }
 }

@@ -8,24 +8,57 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
 interface SignInPageProps {
   onSuccess: () => void;
   onBack: () => void;
   onCreateAccount: () => void;
+  onForgotPassword?: (email?: string) => void;
+  onLoginWithOtp?: (email?: string) => void;
 }
 
-export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPageProps) {
+export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPassword, onLoginWithOtp }: SignInPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
-  const handleSignIn = () => {
-    onSuccess();
+  const handleSignIn = async () => {
+    if (!email.trim() || !password) {
+      setError('Please enter email and password');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await login(email.trim(), password);
+      onSuccess();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
+      let msg: string | null = null;
+      if (err?.response?.data?.message) {
+        const m = err.response.data.message;
+        msg = Array.isArray(m) ? m[0] : m;
+      } else if (err?.message) {
+        if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
+          msg = 'Cannot reach server. Ensure backend is running and API URL in src/config/api.ts is correct.';
+        } else {
+          msg = err.message;
+        }
+      }
+      setError(msg || 'Sign in failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,10 +71,13 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPagePro
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <AnimatedSlideIn delay={0}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={80}>
         <View style={styles.header}>
           <View style={styles.logoBox}>
             <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
@@ -49,7 +85,9 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPagePro
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to continue to Trustopay</Text>
         </View>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={160}>
         <View style={styles.form}>
           <View style={styles.formCard}>
             <Input
@@ -65,11 +103,30 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPagePro
               onChangeText={setPassword}
               secureTextEntry
             />
-            <TouchableOpacity style={styles.forgotLink}>
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-            <Button onPress={handleSignIn} size="lg" style={styles.signInBtn}>
-              Sign In
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <View style={styles.altLinks}>
+              <TouchableOpacity
+                onPress={() => onForgotPassword?.(email.trim() || undefined)}
+                style={styles.forgotLink}
+                disabled={!onForgotPassword}
+              >
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onLoginWithOtp?.(email.trim() || undefined)}
+                style={styles.forgotLink}
+                disabled={!onLoginWithOtp}
+              >
+                <Text style={styles.forgotText}>Sign in with OTP</Text>
+              </TouchableOpacity>
+            </View>
+            <Button
+              onPress={handleSignIn}
+              size="lg"
+              style={styles.signInBtn}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#fff" size="small" /> : 'Sign In'}
             </Button>
             <TouchableOpacity onPress={onCreateAccount} style={styles.switchLink}>
               <Text style={styles.switchText}>
@@ -78,7 +135,9 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPagePro
             </TouchableOpacity>
           </View>
         </View>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={240}>
         <View style={styles.footer}>
           <Text style={styles.footerText}>Crafted with ❤️ in Gujarat</Text>
           <View style={styles.tricolor}>
@@ -87,6 +146,7 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount }: SignInPagePro
             <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
           </View>
         </View>
+        </AnimatedSlideIn>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -149,9 +209,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gray100,
   },
-  forgotLink: {
-    alignSelf: 'flex-end',
+  altLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  forgotLink: {
+    paddingVertical: 4,
   },
   forgotText: {
     fontSize: 14,
@@ -172,6 +236,11 @@ const styles = StyleSheet.create({
   switchLinkText: {
     color: colors.purple,
     fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.red500,
+    marginBottom: 12,
   },
   footer: {
     alignItems: 'center',

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { AnimatedSection } from '../components/AnimatedSection';
 
 interface ActivityPageProps {
   isOpen: boolean;
@@ -86,7 +87,8 @@ export function ActivityPage({ isOpen, onClose }: ActivityPageProps) {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <View style={styles.timeline}>
             {ACTIVITIES.map((item, index) => (
-              <View key={item.id} style={styles.activityRow}>
+              <AnimatedSection key={item.id} index={index} delay={0}>
+              <View style={styles.activityRow}>
                 <View style={styles.timelineLeft}>
                   <View style={[styles.iconWrap, { backgroundColor: item.iconBg }]}>
                     <Ionicons name={item.icon as any} size={20} color={item.iconColor} />
@@ -103,6 +105,7 @@ export function ActivityPage({ isOpen, onClose }: ActivityPageProps) {
                   </View>
                 </View>
               </View>
+              </AnimatedSection>
             ))}
           </View>
           <View style={{ height: 40 }} />

@@ -1,29 +1,44 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
+import { AnimatedSection } from '../components/AnimatedSection';
 
 interface Customer {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   initials: string;
   color: string;
 }
 
-const initialCustomers: Customer[] = [
-  { id: '1', name: 'Aditya Roy', phone: '+91 98765 43210', initials: 'AR', color: 'blue' },
-  { id: '2', name: 'Amit Kumar', phone: '+91 98765 12345', initials: 'AK', color: 'green' },
-  { id: '3', name: 'Deepak Singh', phone: '+91 91234 56789', initials: 'DS', color: 'purple' },
-  { id: '4', name: 'Karan Malhotra', phone: '+91 99887 76655', initials: 'KM', color: 'orange' },
-  { id: '5', name: 'Manish Gupta', phone: '+91 88776 65544', initials: 'MG', color: 'teal' },
-  { id: '6', name: 'Neha Patel', phone: '+91 77665 54433', initials: 'NP', color: 'pink' },
-  { id: '7', name: 'Priya Sharma', phone: '+91 66554 43322', initials: 'PS', color: 'indigo' },
-  { id: '8', name: 'Rahul Verma', phone: '+91 55443 32211', initials: 'RV', color: 'red' },
-  { id: '9', name: 'Sanjay Mehta', phone: '+91 99988 87776', initials: 'SM', color: 'yellow' },
-  { id: '10', name: 'Vikram Singh', phone: '+91 88877 76665', initials: 'VS', color: 'cyan' },
+function toCustomer(raw: { id: string; name: string; phone?: string; email?: string; initials?: string; color?: string }): Customer {
+  const initials = raw.initials || raw.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+  return {
+    id: raw.id,
+    name: raw.name,
+    phone: raw.phone || '',
+    email: raw.email,
+    initials,
+    color: raw.color || 'blue',
+  };
+}
+
+/** Dummy customers for review when API returns empty */
+const DUMMY_CUSTOMERS: Customer[] = [
+  { id: 'dc1', name: 'Design Hub', phone: '+91 98765 43210', email: 'accounts@designhub.in', initials: 'DH', color: 'purple' },
+  { id: 'dc2', name: 'Tech Solutions Ltd', phone: '+91 91234 56789', email: 'billing@techsolutions.in', initials: 'TS', color: 'blue' },
+  { id: 'dc3', name: 'Creative Studio', phone: '+91 87654 32109', email: 'hello@creativestudio.co', initials: 'CS', color: 'green' },
+  { id: 'dc4', name: 'Global Services', phone: '+91 76543 21098', email: 'accounts@globalservices.com', initials: 'GS', color: 'orange' },
+  { id: 'dc5', name: 'Alpha Corp', phone: '+91 65432 10987', email: 'finance@alphacorp.in', initials: 'AC', color: 'teal' },
+  { id: 'dc6', name: 'Beta Systems', phone: '+91 54321 09876', email: 'billing@betasystems.co', initials: 'BS', color: 'indigo' },
+  { id: 'dc7', name: 'Manish Gupta', phone: '+91 98765 11111', email: 'manish@example.com', initials: 'MG', color: 'blue' },
+  { id: 'dc8', name: 'Priya Sharma', phone: '+91 98765 22222', email: 'priya@example.com', initials: 'PS', color: 'pink' },
+  { id: 'dc9', name: 'Rahul Verma', phone: '+91 98765 33333', email: 'rahul@example.com', initials: 'RV', color: 'green' },
 ];
 
 const colorMap: Record<string, { bg: string; text: string }> = {
@@ -42,10 +57,13 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 interface CustomersPageProps {
   onSelectCustomer: (customer: Customer) => void;
   mode?: 'default' | 'select';
+  onBeforeAddCustomer?: () => boolean;
 }
 
-export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersPageProps) {
-  const [customers, setCustomers] = useState(initialCustomers);
+export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddCustomer }: CustomersPageProps) {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -54,26 +72,54 @@ export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersP
   const [isAdding, setIsAdding] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const fetchCustomers = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data } = await api.get<unknown[]>('/customers');
+      const list = Array.isArray(data) ? data.map(toCustomer) : [];
+      setCustomers(list.length > 0 ? list : DUMMY_CUSTOMERS);
+    } catch {
+      setCustomers(DUMMY_CUSTOMERS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
   const filtered = customers.filter(
-    c => c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search)
+    c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (c.phone && c.phone.includes(search)) ||
+      (c.email && c.email.includes(search)),
   );
   const grouped = filtered.reduce((acc, c) => {
-    const letter = c.name[0].toUpperCase();
+    const letter = c.name[0]?.toUpperCase() || '#';
     if (!acc[letter]) acc[letter] = [];
     acc[letter].push(c);
     return acc;
   }, {} as Record<string, Customer[]>);
   const sortedLetters = Object.keys(grouped).sort();
 
-  const handleAddCustomer = () => {
-    if (!newCustomerName || !newCustomerPhone) return;
+  const handleAddCustomer = async () => {
+    if (!newCustomerName.trim() || !newCustomerPhone.trim()) return;
     setIsAdding(true);
-    setTimeout(() => {
+    setError(null);
+    try {
       const initials = newCustomerName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-      const colors_list = ['blue', 'green', 'purple', 'orange'];
-      const color = colors_list[Math.floor(Math.random() * colors_list.length)];
-      setCustomers([...customers, { id: Date.now().toString(), name: newCustomerName, phone: newCustomerPhone, initials, color }]);
-      setIsAdding(false);
+      const colorsList = ['blue', 'green', 'purple', 'orange'];
+      const color = colorsList[Math.floor(Math.random() * colorsList.length)];
+      const { data } = await api.post<{ id: string; name: string; phone?: string; email?: string; initials?: string; color?: string }>('/customers', {
+        name: newCustomerName.trim(),
+        phone: newCustomerPhone.trim(),
+        email: newCustomerEmail.trim() || undefined,
+        initials,
+        color,
+      });
+      setCustomers(prev => [toCustomer(data), ...prev]);
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
@@ -82,7 +128,11 @@ export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersP
         setNewCustomerPhone('');
         setNewCustomerEmail('');
       }, 1500);
-    }, 1000);
+    } catch {
+      setError('Failed to add customer');
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -90,7 +140,13 @@ export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersP
       {mode !== 'select' && (
         <View style={styles.header}>
           <Text style={styles.title}>Customers</Text>
-          <TouchableOpacity onPress={() => setShowAddCustomer(true)} style={styles.addBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              if (onBeforeAddCustomer && !onBeforeAddCustomer()) return;
+              setShowAddCustomer(true);
+            }}
+            style={styles.addBtn}
+          >
             <Ionicons name="person-add-outline" size={24} color={colors.purple} />
           </TouchableOpacity>
         </View>
@@ -107,9 +163,18 @@ export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersP
           />
         </View>
       </View>
+      {loading && (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.purple} />
+        </View>
+      )}
+      {error && !loading && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {sortedLetters.map(letter => (
-          <View key={letter} style={styles.group}>
+        {sortedLetters.map((letter, letterIdx) => (
+          <AnimatedSection key={letter} index={letterIdx} delay={0}>
+          <View style={styles.group}>
             <Text style={styles.letter}>{letter}</Text>
             {grouped[letter].map(customer => {
               const c = colorMap[customer.color] || colorMap.blue;
@@ -132,6 +197,7 @@ export function CustomersPage({ onSelectCustomer, mode = 'default' }: CustomersP
               );
             })}
           </View>
+          </AnimatedSection>
         ))}
         {filtered.length === 0 && (
           <Text style={styles.empty}>No customers found</Text>
@@ -188,6 +254,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 16,
   },
+  loadingWrap: { paddingVertical: 48, alignItems: 'center' },
+  errorText: { fontSize: 14, color: colors.red500, textAlign: 'center', padding: 16 },
   searchInner: {
     flexDirection: 'row',
     alignItems: 'center',

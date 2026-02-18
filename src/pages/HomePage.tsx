@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
 interface Transaction {
   id: string;
@@ -25,11 +26,13 @@ interface Transaction {
 }
 
 const transactions: Transaction[] = [
-  { id: '1', name: 'Priya Sharma', date: 'Today, 10:23 AM', amount: 15000, type: 'received', status: 'completed', invoiceRef: 'INV-006', note: 'Website Design', milestone: { current: 2, total: 3 } },
-  { id: '2', name: 'Rahul Verma', date: 'Yesterday, 4:45 PM', amount: 2500, type: 'sent', status: 'completed', invoiceRef: 'INV-007', note: 'Logo Design' },
-  { id: '3', name: 'Design Studio', date: 'Oct 24, 2:30 PM', amount: 45000, type: 'received', status: 'completed', invoiceRef: 'INV-002', note: 'Full Payment' },
-  { id: '4', name: 'Neha Patel', date: 'Oct 23, 9:15 AM', amount: 1200, type: 'sent', status: 'completed', note: 'Reimbursement' },
-  { id: '5', name: 'Tech Solutions', date: 'Oct 21, 11:00 AM', amount: 8500, type: 'received', status: 'completed', invoiceRef: 'INV-003', note: 'Consulting', milestone: { current: 1, total: 2 } },
+  { id: '1', name: 'Priya Sharma', date: 'Today, 10:23 AM', amount: 15000, type: 'received', status: 'completed', invoiceRef: 'INV-101', note: 'Website Design', milestone: { current: 2, total: 3 } },
+  { id: '2', name: 'Design Hub', date: 'Today, 9:15 AM', amount: 45000, type: 'received', status: 'completed', invoiceRef: 'INV-104', note: 'Full Payment' },
+  { id: '3', name: 'Rahul Verma', date: 'Yesterday, 4:45 PM', amount: 2500, type: 'sent', status: 'completed', invoiceRef: 'INV-105', note: 'Logo Design' },
+  { id: '4', name: 'Design Studio', date: 'Yesterday, 2:30 PM', amount: 32500, type: 'received', status: 'completed', invoiceRef: 'INV-103', note: 'Milestone Payment', milestone: { current: 1, total: 2 } },
+  { id: '5', name: 'Neha Patel', date: '15 Feb, 9:15 AM', amount: 1200, type: 'sent', status: 'completed', note: 'Reimbursement' },
+  { id: '6', name: 'Tech Solutions', date: '14 Feb, 11:00 AM', amount: 18500, type: 'received', status: 'completed', invoiceRef: 'INV-102', note: 'Consulting' },
+  { id: '7', name: 'Global Services', date: '13 Feb, 3:20 PM', amount: 56000, type: 'received', status: 'completed', invoiceRef: 'INV-106', note: 'Project Deliverable' },
 ];
 
 interface HomePageProps {
@@ -99,14 +102,17 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
         </View>
       </Modal>
 
-      <View style={styles.balanceSection}>
-        <Text style={styles.balanceLabel}>Total Balance</Text>
-        <View style={styles.balanceRow}>
-          <Text style={styles.balanceAmount}>{formatINR(12650)}</Text>
-          <Ionicons name="eye" size={18} color={colors.gray300} />
+      <AnimatedSlideIn delay={80}>
+        <View style={styles.balanceSection}>
+          <Text style={styles.balanceLabel}>Total Balance</Text>
+          <View style={styles.balanceRow}>
+            <Text style={styles.balanceAmount}>{formatINR(12650)}</Text>
+            <Ionicons name="eye" size={18} color={colors.gray300} />
+          </View>
         </View>
-      </View>
+      </AnimatedSlideIn>
 
+      <AnimatedSlideIn delay={160}>
       <View style={styles.quickActions}>
         {[
           { icon: 'scan' as const, label: 'Scan QR', action: () => (onOpenScanQR ? onOpenScanQR() : onNavigate('scan-qr')) },
@@ -128,7 +134,9 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
             </TouchableOpacity>
         ))}
       </View>
+      </AnimatedSlideIn>
 
+      <AnimatedSlideIn delay={240}>
       <View style={styles.promoBanner}>
         <Text style={styles.promoTitle}>Crafted with ❤️ in Gujarat</Text>
         <Text style={styles.promoDesc}>Built to Empower MSMEs & SoloPreneurs Like You</Text>
@@ -138,7 +146,9 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
           <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
         </View>
       </View>
+      </AnimatedSlideIn>
 
+      <AnimatedSlideIn delay={320}>
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transaction</Text>
@@ -175,6 +185,7 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
           </TouchableOpacity>
         ))}
       </View>
+      </AnimatedSlideIn>
       <View style={{ height: 100 }} />
     </ScrollView>
   );
@@ -188,7 +199,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 48,
+    paddingTop: 24,
     paddingBottom: 8,
   },
   userName: { fontSize: 18, fontWeight: '700', color: colors.navy },

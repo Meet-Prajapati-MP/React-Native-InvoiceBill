@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
 interface MenuPageProps {
   onNavigate: (action: string) => void;
@@ -20,6 +21,8 @@ interface MenuPageProps {
   onOpenMessageCentre?: () => void;
   onOpenVerificationCenter?: () => void;
   onLogOut?: () => void;
+  isAuthenticated?: boolean;
+  onSignIn?: () => void;
 }
 
 const menuGroups = [
@@ -54,9 +57,10 @@ const menuGroups = [
   },
 ];
 
-export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpenBankAccounts, onOpenActivity, onOpenBusinessProfile, onOpenInvoiceSettings, onOpenTermsConditions, onOpenMyAddresses, onOpenSendReminders, onOpenReportsAnalytics, onOpenItemList, onOpenHelpCentre, onOpenMessageCentre, onOpenVerificationCenter, onLogOut }: MenuPageProps) {
+export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpenBankAccounts, onOpenActivity, onOpenBusinessProfile, onOpenInvoiceSettings, onOpenTermsConditions, onOpenMyAddresses, onOpenSendReminders, onOpenReportsAnalytics, onOpenItemList, onOpenHelpCentre, onOpenMessageCentre, onOpenVerificationCenter, onLogOut, isAuthenticated, onSignIn }: MenuPageProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <AnimatedSlideIn delay={80}>
       <TouchableOpacity
         style={styles.profile}
         onPress={onOpenProfile}
@@ -72,8 +76,10 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
         </View>
         <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
       </TouchableOpacity>
-      {menuGroups.map((group) => (
-        <View key={group.title} style={styles.group}>
+      </AnimatedSlideIn>
+      {menuGroups.map((group, idx) => (
+        <AnimatedSlideIn key={group.title} delay={120 + idx * 60}>
+        <View style={styles.group}>
           <Text style={styles.groupTitle}>{group.title}</Text>
           {group.items.map((item) => (
               <TouchableOpacity
@@ -108,19 +114,30 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
               </TouchableOpacity>
           ))}
         </View>
+        </AnimatedSlideIn>
       ))}
+      <AnimatedSlideIn delay={400}>
       <TouchableOpacity
         style={styles.logoutRow}
-        onPress={onLogOut}
+        onPress={isAuthenticated ? onLogOut : onSignIn}
         activeOpacity={0.7}
       >
-        <Ionicons name="log-out-outline" size={20} color={colors.red500} />
-        <Text style={styles.logoutText}>Log Out</Text>
+        <Ionicons
+          name={isAuthenticated ? 'log-out-outline' : 'log-in-outline'}
+          size={20}
+          color={colors.red500}
+        />
+        <Text style={styles.logoutText}>
+          {isAuthenticated ? 'Log Out' : 'Sign In'}
+        </Text>
         <Ionicons name="chevron-forward" size={20} color={colors.red500} />
       </TouchableOpacity>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={450}>
       <View style={styles.footer}>
         <Text style={styles.footerText}>Version 1.0.2 • Trustopay India</Text>
       </View>
+      </AnimatedSlideIn>
     </ScrollView>
   );
 }

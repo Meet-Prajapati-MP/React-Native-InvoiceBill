@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 import {
   FilterPanel,
   SortPanel,
@@ -20,6 +22,7 @@ import {
   AMOUNT_QUICK,
   DATE_QUICK,
 } from '../components/FilterSystem';
+import { AnimatedSection } from '../components/AnimatedSection';
 
 interface Invoice {
   id: string;
@@ -32,6 +35,8 @@ interface Invoice {
   type: 'sent' | 'received';
   activity?: string;
   activityIcon?: 'link' | 'eye';
+  customerEmail?: string;
+  customerPhone?: string;
 }
 
 interface RecurringInvoice {
@@ -46,22 +51,62 @@ interface RecurringInvoice {
   date: string;
 }
 
-const sentInvoices: Invoice[] = [
-  { id: '1', number: 'INV-001', client: 'Tech Solutions Ltd', amount: 10000, date: 'Oct 24, 2023', dueDate: 'Nov 24, 2023', status: 'pending', type: 'sent', activity: 'Payment link opened 2h ago', activityIcon: 'link' },
-  { id: '2', number: 'INV-002', client: 'Creative Studio', amount: 25000, date: 'Oct 20, 2023', dueDate: 'Nov 20, 2023', status: 'paid', type: 'sent', activity: 'Viewed by client', activityIcon: 'eye' },
-  { id: '3', number: 'INV-003', client: 'Global Services', amount: 5000, date: 'Oct 15, 2023', dueDate: 'Oct 30, 2023', status: 'overdue', type: 'sent', activity: 'Overdue', activityIcon: 'link' },
+function formatDateShort(d: string | null): string {
+  if (!d) return '';
+  const x = new Date(d);
+  return isNaN(x.getTime()) ? '' : x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function toInvoice(raw: {
+  id: string;
+  number: string;
+  status: string;
+  type: string;
+  invoice_date?: string;
+  due_date?: string;
+  customers?: { name?: string; email?: string; phone?: string } | null;
+  invoice_items?: { qty?: number; rate?: number }[];
+}): Invoice {
+  const cust = raw.customers as { name?: string; email?: string; phone?: string } | undefined;
+  const client = cust?.name ?? 'Unknown';
+  const items = raw.invoice_items ?? [];
+  const amount = items.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.rate) || 0), 0);
+  return {
+    id: raw.id,
+    number: raw.number,
+    client,
+    amount,
+    date: formatDateShort(raw.invoice_date),
+    dueDate: formatDateShort(raw.due_date),
+    status: (raw.status as Invoice['status']) || 'pending',
+    type: (raw.type as Invoice['type']) || 'sent',
+    customerEmail: cust?.email,
+    customerPhone: cust?.phone,
+  };
+}
+
+/** Dummy invoices for review when API returns empty */
+const DUMMY_SENT_INVOICES: Invoice[] = [
+  { id: 'd1', number: 'INV-101', client: 'Design Hub', amount: 45000, date: '10 Feb, 2026', dueDate: '25 Feb, 2026', status: 'paid', type: 'sent', customerEmail: 'accounts@designhub.in', customerPhone: '+91 98765 43210' },
+  { id: 'd2', number: 'INV-102', client: 'Tech Solutions Ltd', amount: 78000, date: '8 Feb, 2026', dueDate: '23 Feb, 2026', status: 'pending', type: 'sent', activity: 'Viewed 2 times', activityIcon: 'eye', customerEmail: 'billing@techsolutions.in' },
+  { id: 'd3', number: 'INV-103', client: 'Creative Studio', amount: 32500, date: '5 Feb, 2026', dueDate: '20 Feb, 2026', status: 'overdue', type: 'sent', customerPhone: '+91 91234 56789' },
+  { id: 'd4', number: 'INV-104', client: 'Global Services', amount: 120000, date: '1 Feb, 2026', dueDate: '16 Feb, 2026', status: 'paid', type: 'sent' },
+  { id: 'd5', number: 'INV-105', client: 'Alpha Corp', amount: 18500, date: '28 Jan, 2026', dueDate: '12 Feb, 2026', status: 'pending', type: 'sent', activity: 'Link sent', activityIcon: 'link' },
+  { id: 'd6', number: 'INV-106', client: 'Beta Systems', amount: 56000, date: '25 Jan, 2026', dueDate: '9 Feb, 2026', status: 'paid', type: 'sent' },
 ];
 
-const receivedInvoices: Invoice[] = [
-  { id: '4', number: 'INV-004', client: 'Alpha Corp', amount: 12500, date: 'Oct 25, 2023', dueDate: 'Nov 25, 2023', status: 'pending', type: 'received' },
-  { id: '5', number: 'INV-005', client: 'Beta Systems', amount: 8000, date: 'Oct 22, 2023', dueDate: 'Nov 22, 2023', status: 'paid', type: 'received' },
+const DUMMY_RECEIVED_INVOICES: Invoice[] = [
+  { id: 'dr1', number: 'INV-R001', client: 'Design Studio', amount: 45000, date: '12 Feb, 2026', dueDate: '27 Feb, 2026', status: 'pending', type: 'received' },
+  { id: 'dr2', number: 'INV-R002', client: 'Hosting Provider', amount: 8400, date: '9 Feb, 2026', dueDate: '24 Feb, 2026', status: 'paid', type: 'received' },
+  { id: 'dr3', number: 'INV-R003', client: 'Marketing Agency', amount: 22000, date: '3 Feb, 2026', dueDate: '18 Feb, 2026', status: 'overdue', type: 'received' },
+  { id: 'dr4', number: 'INV-R004', client: 'Software Tools Inc', amount: 15000, date: '30 Jan, 2026', dueDate: '14 Feb, 2026', status: 'paid', type: 'received' },
 ];
 
 const recurringInvoices: RecurringInvoice[] = [
-  { id: 'r1', client: 'Tech Solutions Ltd', amount: 10000, frequency: 'MONTHLY', nextDate: 'Nov 24, 2023', status: 'active', type: 'sent', number: 'REC-001', date: 'Nov 24, 2023' },
-  { id: 'r2', client: 'Creative Studio', amount: 25000, frequency: 'QUARTERLY', nextDate: 'Jan 20, 2024', status: 'active', type: 'sent', number: 'REC-002', date: 'Jan 20, 2024' },
-  { id: 'r3', client: 'Global Services', amount: 5000, frequency: 'WEEKLY', nextDate: 'Nov 1, 2023', status: 'paused', type: 'sent', number: 'REC-003', date: 'Nov 1, 2023' },
-  { id: 'r4', client: 'Hosting Provider', amount: 2000, frequency: 'MONTHLY', nextDate: 'Nov 5, 2023', status: 'active', type: 'received', number: 'REC-004', date: 'Nov 5, 2023' },
+  { id: 'r1', client: 'Tech Solutions Ltd', amount: 10000, frequency: 'MONTHLY', nextDate: '24 Feb, 2026', status: 'active', type: 'sent', number: 'REC-001', date: '24 Jan, 2026' },
+  { id: 'r2', client: 'Creative Studio', amount: 25000, frequency: 'QUARTERLY', nextDate: '20 Apr, 2026', status: 'active', type: 'sent', number: 'REC-002', date: '20 Jan, 2026' },
+  { id: 'r3', client: 'Global Services', amount: 5000, frequency: 'WEEKLY', nextDate: '17 Feb, 2026', status: 'paused', type: 'sent', number: 'REC-003', date: '10 Feb, 2026' },
+  { id: 'r4', client: 'Hosting Provider', amount: 2000, frequency: 'MONTHLY', nextDate: '5 Mar, 2026', status: 'active', type: 'received', number: 'REC-004', date: '5 Feb, 2026' },
 ];
 
 type MainTab = 'sent' | 'received' | 'recurring';
@@ -139,6 +184,8 @@ interface InvoicesPageProps {
 }
 
 export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageProps) {
+  const [sentInvoices, setSentInvoices] = useState<Invoice[]>(DUMMY_SENT_INVOICES);
+  const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>(DUMMY_RECEIVED_INVOICES);
   const [mainTab, setMainTab] = useState<MainTab>('sent');
   const [recurringFilter, setRecurringFilter] = useState<RecurringFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,6 +193,24 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
   const [sortKey, setSortKey] = useState('date-desc');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showSortPanel, setShowSortPanel] = useState(false);
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const { data } = await api.get<unknown[]>('/invoices');
+      const list = Array.isArray(data) ? data.map(toInvoice) : [];
+      const sent = list.filter((i) => i.type === 'sent');
+      const received = list.filter((i) => i.type === 'received');
+      setSentInvoices(sent.length > 0 ? sent : DUMMY_SENT_INVOICES);
+      setReceivedInvoices(received.length > 0 ? received : DUMMY_RECEIVED_INVOICES);
+    } catch {
+      setSentInvoices(DUMMY_SENT_INVOICES);
+      setReceivedInvoices(DUMMY_RECEIVED_INVOICES);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const getStatusStyle = (status: string) => {
     if (status === 'paid') return { bg: colors.green100, text: colors.green600 };
@@ -408,13 +473,14 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
           </View>
         )}
         {mainTab === 'sent' &&
-          filteredSent.map((inv) => (
+          filteredSent.map((inv, i) => (
+            <AnimatedSection key={inv.id} index={i} delay={0}>
             <SentInvoiceCard
-              key={inv.id}
               invoice={inv}
               getStatusStyle={getStatusStyle}
               onPress={() => onSelectInvoice(inv)}
             />
+            </AnimatedSection>
           ))}
 
         {mainTab === 'received' && !isFiltered && filteredReceived.length === 0 && (
@@ -423,13 +489,14 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
           </View>
         )}
         {mainTab === 'received' &&
-          filteredReceived.map((inv) => (
+          filteredReceived.map((inv, i) => (
+            <AnimatedSection key={inv.id} index={i} delay={0}>
             <ReceivedInvoiceCard
-              key={inv.id}
               invoice={inv}
               getStatusStyle={getStatusStyle}
               onPress={() => onSelectInvoice(inv)}
             />
+            </AnimatedSection>
           ))}
 
         {mainTab === 'recurring' && !isFiltered && filteredRecurringList.length === 0 && (
@@ -505,15 +572,16 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
           </View>
         )}
         {mainTab === 'recurring' &&
-          filteredRecurringList.map((inv) => (
+          filteredRecurringList.map((inv, i) => (
+            <AnimatedSection key={inv.id} index={i} delay={0}>
             <RecurringInvoiceCard
-              key={inv.id}
               invoice={inv}
               getRecurringStatusStyle={getRecurringStatusStyle}
               onPress={() => onSelectInvoice(inv)}
               onPauseResume={() => {}}
               onEditTemplate={() => {}}
             />
+            </AnimatedSection>
           ))}
 
         <View style={{ height: 120 }} />

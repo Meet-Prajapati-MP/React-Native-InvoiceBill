@@ -8,11 +8,14 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
 interface CreateAccountPageProps {
   onSuccess: () => void;
@@ -25,9 +28,45 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
 
-  const handleCreateAccount = () => {
-    onSuccess();
+  const handleCreateAccount = async () => {
+    if (!email.trim() || !password) {
+      setError('Please enter email and password');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await register(email.trim(), password, name.trim() || undefined);
+      onSuccess();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
+      let msg: string | null = null;
+      if (err?.response?.data?.message) {
+        const m = err.response.data.message;
+        msg = Array.isArray(m) ? m[0] : m;
+      } else if (err?.message) {
+        if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
+          msg = 'Cannot reach server. Check that the backend is running and API URL in src/config/api.ts is correct (use 10.0.2.2:3000 for Android emulator, or your PC IP for physical device).';
+        } else {
+          msg = err.message;
+        }
+      }
+      setError(msg || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,10 +79,13 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <AnimatedSlideIn delay={0}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={80}>
         <View style={styles.header}>
           <View style={styles.logoBox}>
             <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
@@ -51,7 +93,9 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Trustopay to get started</Text>
         </View>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={160}>
         <View style={styles.form}>
           <View style={styles.formCard}>
             <Input
@@ -80,8 +124,14 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
               onChangeText={setConfirmPassword}
               secureTextEntry
             />
-            <Button onPress={handleCreateAccount} size="lg" style={styles.createBtn}>
-              Create Account
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            <Button
+              onPress={handleCreateAccount}
+              size="lg"
+              style={styles.createBtn}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#fff" size="small" /> : 'Create Account'}
             </Button>
             <TouchableOpacity onPress={onSignIn} style={styles.switchLink}>
               <Text style={styles.switchText}>
@@ -90,7 +140,9 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
             </TouchableOpacity>
           </View>
         </View>
+        </AnimatedSlideIn>
 
+        <AnimatedSlideIn delay={240}>
         <View style={styles.footer}>
           <Text style={styles.footerText}>Crafted with ❤️ in Gujarat</Text>
           <View style={styles.tricolor}>
@@ -99,6 +151,7 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
             <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
           </View>
         </View>
+        </AnimatedSlideIn>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -176,6 +229,11 @@ const styles = StyleSheet.create({
   switchLinkText: {
     color: colors.purple,
     fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.red500,
+    marginBottom: 12,
   },
   footer: {
     alignItems: 'center',

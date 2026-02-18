@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
 import { colors } from '../theme/colors';
+import { AnimatedSlideIn } from './AnimatedSlideIn';
+import { AnimatedIconJumpFromCenter } from './AnimatedIconJumpFromCenter';
+import { AnimatedCountUp } from './AnimatedCountUp';
 
 const { width } = Dimensions.get('window');
 const SLIDE_COUNT = 6;
@@ -73,21 +76,25 @@ export function OnboardingScreen({ onComplete, onSignIn, onCreateAccount }: Onbo
 function Slide1() {
   return (
     <View style={[styles.slide, styles.slide1Bg]}>
-      <View style={styles.slide1Content}>
-        <View style={styles.logoBox}>
-          <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
+      <AnimatedSlideIn delay={100}>
+        <View style={styles.slide1Content}>
+          <View style={styles.logoBox}>
+            <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
+          </View>
+          <Text style={styles.title1}>Trustopay</Text>
+          <Text style={styles.subtitle1Light}>Payments Built on Trust</Text>
         </View>
-        <Text style={styles.title1}>Trustopay</Text>
-        <Text style={styles.subtitle1Light}>Payments Built on Trust</Text>
-      </View>
-      <View style={styles.slide1Footer}>
-        <Text style={styles.footerText}>Crafted with ❤️ in Gujarat</Text>
-        <View style={styles.tricolorFooter}>
-          <View style={[styles.tricolorBar, { backgroundColor: colors.saffron }]} />
-          <View style={[styles.tricolorBar, { backgroundColor: colors.white }]} />
-          <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={300}>
+        <View style={styles.slide1Footer}>
+          <Text style={styles.footerText}>Crafted with ❤️ in Gujarat</Text>
+          <View style={styles.tricolorFooter}>
+            <View style={[styles.tricolorBar, { backgroundColor: colors.saffron }]} />
+            <View style={[styles.tricolorBar, { backgroundColor: colors.white }]} />
+            <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
+          </View>
         </View>
-      </View>
+      </AnimatedSlideIn>
     </View>
   );
 }
@@ -104,16 +111,20 @@ const slide2Items = [
 function Slide2() {
   return (
     <View style={[styles.slide, styles.slideWhite]}>
-      <Text style={styles.title2}>Built for Everyone{'\n'}Who Does Business</Text>
-      <Text style={styles.desc}>From solopreneurs to growing teams — Trustopay works for you.</Text>
-      <View style={styles.grid}>
-        {slide2Items.map((item) => (
-          <View key={item.label} style={[styles.gridItem, { backgroundColor: item.color }]}>
-            <Ionicons name={item.icon} size={22} color={colors.navy} />
-            <Text style={styles.gridLabel}>{item.label}</Text>
-          </View>
-        ))}
-      </View>
+      <AnimatedSlideIn delay={80}>
+        <Text style={styles.title2}>Built for Everyone{'\n'}Who Does Business</Text>
+        <Text style={styles.desc}>From solopreneurs to growing teams — Trustopay works for you.</Text>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={200}>
+        <View style={styles.grid}>
+          {slide2Items.map((item) => (
+            <View key={item.label} style={[styles.gridItem, { backgroundColor: item.color }]}>
+              <Ionicons name={item.icon} size={22} color={colors.navy} />
+              <Text style={styles.gridLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+      </AnimatedSlideIn>
     </View>
   );
 }
@@ -121,80 +132,103 @@ function Slide2() {
 function Slide3() {
   return (
     <View style={[styles.slide, styles.slideWhite]}>
-      <Text style={styles.title2}>Professional Invoices{'\n'}in Seconds</Text>
-      <Text style={styles.desc}>Create, send, and track — effortlessly.</Text>
-      <View style={styles.invoiceCard}>
-        <View style={styles.invoiceHeader}>
-          <View style={styles.invLogo}>
-            <Image source={require('../../assets/tp-logo.png')} style={styles.invLogoImage} resizeMode="contain" />
+      <AnimatedSlideIn delay={80}>
+        <Text style={styles.title2}>Professional Invoices{'\n'}in Seconds</Text>
+        <Text style={styles.desc}>Create, send, and track — effortlessly.</Text>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={200}>
+        <View style={styles.invoiceCard}>
+          <View style={styles.invoiceHeader}>
+            <View style={styles.invLogo}>
+              <Image source={require('../../assets/tp-logo.png')} style={styles.invLogoImage} resizeMode="contain" />
+            </View>
+            <View>
+              <Text style={styles.invNum}>INV-045</Text>
+              <Text style={styles.invDate}>Feb 10, 2026</Text>
+            </View>
+            <View style={styles.badges}>
+              <View style={styles.badgeGst}><Text style={styles.badgeText}>GST</Text></View>
+              <View style={styles.badgePaid}><Text style={styles.badgeTextGreen}>PAID ✓</Text></View>
+            </View>
           </View>
-          <View>
-            <Text style={styles.invNum}>INV-045</Text>
-            <Text style={styles.invDate}>Feb 10, 2026</Text>
+          <View style={styles.invLine}>
+            <Text style={styles.invLabel}>Web Design Services</Text>
+            <Text style={styles.invVal}>₹12,712</Text>
           </View>
-          <View style={styles.badges}>
-            <View style={styles.badgeGst}><Text style={styles.badgeText}>GST</Text></View>
-            <View style={styles.badgePaid}><Text style={styles.badgeTextGreen}>PAID ✓</Text></View>
+          <View style={styles.invLine}>
+            <Text style={styles.invLabel}>GST (18%)</Text>
+            <Text style={styles.invVal}>₹2,288</Text>
+          </View>
+          <View style={styles.invTotal}>
+            <Text style={styles.invTotalLabel}>Total</Text>
+            <Text style={styles.invTotalVal}>₹15,000</Text>
           </View>
         </View>
-        <View style={styles.invLine}>
-          <Text style={styles.invLabel}>Web Design Services</Text>
-          <Text style={styles.invVal}>₹12,712</Text>
-        </View>
-        <View style={styles.invLine}>
-          <Text style={styles.invLabel}>GST (18%)</Text>
-          <Text style={styles.invVal}>₹2,288</Text>
-        </View>
-        <View style={styles.invTotal}>
-          <Text style={styles.invTotalLabel}>Total</Text>
-          <Text style={styles.invTotalVal}>₹15,000</Text>
-        </View>
-      </View>
-      {['GST-Ready & Legally Compliant', 'Milestone & Recurring Payments', 'Send via WhatsApp, Email, or Link'].map(f => (
-        <View key={f} style={styles.checkRow}>
-          <View style={styles.checkIcon}><Ionicons name="checkmark" size={14} color={colors.green600} /></View>
-          <Text style={styles.checkText}>{f}</Text>
-        </View>
-      ))}
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={320}>
+        {['GST-Ready & Legally Compliant', 'Milestone & Recurring Payments', 'Send via WhatsApp, Email, or Link'].map(f => (
+          <View key={f} style={styles.checkRow}>
+            <View style={styles.checkIcon}><Ionicons name="checkmark" size={14} color={colors.green600} /></View>
+            <Text style={styles.checkText}>{f}</Text>
+          </View>
+        ))}
+      </AnimatedSlideIn>
     </View>
   );
 }
 
+/** Uniform circle: 5 icons at 72° apart. Start top (-90°), then clockwise. */
+const ICON_COUNT = 5;
+const ICON_ANGLE_STEP = 360 / ICON_COUNT;
+const CIRCLE_RADIUS = 95;
+
 const methods = [
+  { icon: 'globe' as const, color: colors.blue100 },
   { icon: 'wallet' as const, color: colors.purple100 },
+  { icon: 'business' as const, color: '#FCE7F3' },
   { icon: 'phone-portrait' as const, color: colors.blue100 },
-  { icon: 'card' as const, color: colors.orange50 },
-  { icon: 'globe' as const, color: '#E0E7FF' },
-  { icon: 'business' as const, color: colors.red50 },
+  { icon: 'card' as const, color: '#FEF9C3' },
 ];
+
+const CLUSTER_SIZE = CIRCLE_RADIUS * 2 + 100;
 
 function Slide4() {
   return (
     <View style={[styles.slide, styles.slideWhite]}>
-      <Text style={styles.title2}>Get Paid Faster,{'\n'}Pay Smarter</Text>
-      <Text style={styles.desc}>Multiple payment methods, zero hassle.</Text>
-      <View style={styles.methodsRow}>
-        {methods.map((m, i) => (
-          <View key={i} style={[styles.methodIcon, { backgroundColor: m.color }]}>
-            <Ionicons name={m.icon} size={20} color={colors.navy} />
-          </View>
-        ))}
-      </View>
-      <View style={styles.methodsDotWrap}>
+      <AnimatedSlideIn delay={80}>
+        <Text style={styles.title2}>Get Paid Faster,{'\n'}Pay Smarter</Text>
+        <Text style={styles.desc}>Multiple payment methods, zero hassle.</Text>
+      </AnimatedSlideIn>
+      <View style={styles.methodsClusterWrap}>
         <View style={styles.methodsDot}>
           <Text style={styles.rupeeSymbol}>₹</Text>
         </View>
+        {methods.map((m, i) => (
+          <AnimatedIconJumpFromCenter
+            key={i}
+            index={i}
+            delay={220}
+            angle={-90 + i * ICON_ANGLE_STEP}
+            radius={CIRCLE_RADIUS}
+          >
+            <View style={[styles.methodIcon, { backgroundColor: m.color }]}>
+              <Ionicons name={m.icon} size={20} color={colors.navy} />
+            </View>
+          </AnimatedIconJumpFromCenter>
+        ))}
       </View>
-      {[
-        { text: 'In-App Wallet — Zero Fee Transfers', icon: 'flash' as const },
-        { text: 'UPI, Cards, Net Banking, PayPal', icon: 'card' as const },
-        { text: 'Instant Notifications & Receipts', icon: 'document-text' as const },
-      ].map((f, i) => (
-        <View key={i} style={styles.featureRow}>
-          <Ionicons name={f.icon} size={18} color={colors.purple} />
-          <Text style={styles.featureText}>{f.text}</Text>
-        </View>
-      ))}
+      <AnimatedSlideIn delay={450}>
+        {[
+          { text: 'In-App Wallet — Zero Fee Transfers', icon: 'flash' as const },
+          { text: 'UPI, Cards, Net Banking, PayPal', icon: 'card' as const },
+          { text: 'Instant Notifications & Receipts', icon: 'document-text' as const },
+        ].map((f, i) => (
+          <View key={i} style={styles.featureRow}>
+            <Ionicons name={f.icon} size={18} color={colors.purple} />
+            <Text style={styles.featureText}>{f.text}</Text>
+          </View>
+        ))}
+      </AnimatedSlideIn>
     </View>
   );
 }
@@ -202,28 +236,34 @@ function Slide4() {
 function Slide5() {
   return (
     <View style={[styles.slide, styles.slideNavy]}>
-      <Text style={styles.titleLight}>Your Money,{'\n'}Our Priority</Text>
-      <Text style={styles.descLight}>Enterprise-grade security for your peace of mind.</Text>
-      <View style={styles.shieldWrap}>
-        <Ionicons name="shield-checkmark" size={48} color={colors.white} />
-        <View style={styles.lockBadge}>
-          <Ionicons name="lock-closed" size={14} color={colors.navy} />
-        </View>
-      </View>
-      <View style={styles.securityGrid}>
-        {[
-          { text: 'Bank-Grade\nEncryption', icon: 'lock-closed' as const },
-          { text: 'Verified\nBusinesses', icon: 'checkmark' as const },
-          { text: 'Dispute\nProtection', icon: 'shield-checkmark' as const },
-          { text: 'Complete\nAudit Trail', icon: 'document-text' as const },
-        ].map((item, i) => (
-          <View key={i} style={styles.securityItem}>
-            <Ionicons name={item.icon} size={20} color={colors.purpleLight} />
-            <Text style={styles.securityText}>{item.text}</Text>
+      <AnimatedSlideIn delay={80}>
+        <Text style={styles.titleLight}>Your Money,{'\n'}Our Priority</Text>
+        <Text style={styles.descLight}>Enterprise-grade security for your peace of mind.</Text>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={200}>
+        <View style={styles.shieldWrap}>
+          <Ionicons name="shield-checkmark" size={48} color={colors.white} />
+          <View style={styles.lockBadge}>
+            <Ionicons name="lock-closed" size={14} color={colors.navy} />
           </View>
-        ))}
-      </View>
-      <Text style={styles.pciText}>PCI DSS Compliant • 256-bit SSL Encrypted</Text>
+        </View>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={320}>
+        <View style={styles.securityGrid}>
+          {[
+            { text: 'Bank-Grade\nEncryption', icon: 'lock-closed' as const },
+            { text: 'Verified\nBusinesses', icon: 'checkmark' as const },
+            { text: 'Dispute\nProtection', icon: 'shield-checkmark' as const },
+            { text: 'Complete\nAudit Trail', icon: 'document-text' as const },
+          ].map((item, i) => (
+            <View key={i} style={styles.securityItem}>
+              <Ionicons name={item.icon} size={20} color={colors.purpleLight} />
+              <Text style={styles.securityText}>{item.text}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.pciText}>PCI DSS Compliant • 256-bit SSL Encrypted</Text>
+      </AnimatedSlideIn>
     </View>
   );
 }
@@ -231,12 +271,15 @@ function Slide5() {
 function Slide6({ onComplete, onSignIn, onCreateAccount }: { onComplete: () => void; onSignIn: () => void; onCreateAccount: () => void }) {
   return (
     <View style={[styles.slide, styles.slideGradient]}>
+      <AnimatedSlideIn delay={80}>
       <Text style={styles.title2}>
         Empowering{'\n'}
         <Text style={styles.titlePurple}>Micro & Small</Text>
         {'\n'}
         <Text style={styles.titlePurple}>Businesses</Text> Across India
       </Text>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={180}>
       <View style={styles.testimonial}>
         <View style={styles.testAvatar}><Text style={styles.testAvatarText}>AS</Text></View>
         <View>
@@ -250,14 +293,27 @@ function Slide6({ onComplete, onSignIn, onCreateAccount }: { onComplete: () => v
           "Finally, an invoicing app that understands Indian businesses. Simple, fast, and professional."
         </Text>
       </View>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={280}>
       <View style={styles.stats}>
         <Ionicons name="people" size={18} color={colors.purple} />
-        <Text style={styles.statsNum}>10,000+</Text>
+        <AnimatedCountUp
+          from={2000}
+          to={10000}
+          suffix="+"
+          duration={2200}
+          delay={400}
+          style={styles.statsNum}
+        />
         <Text style={styles.statsLabel}>Businesses</Text>
       </View>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={360}>
       <Button onPress={onComplete} size="lg" style={styles.getStarted}>
         Get Started — It's Free
       </Button>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={420}>
       <TouchableOpacity onPress={onCreateAccount} style={styles.signInWrap}>
         <Text style={styles.signIn}>
           Don't have an account? <Text style={styles.signInLink}>Create account</Text>
@@ -268,11 +324,14 @@ function Slide6({ onComplete, onSignIn, onCreateAccount }: { onComplete: () => v
           Already have an account? <Text style={styles.signInLink}>Sign In</Text>
         </Text>
       </TouchableOpacity>
+      </AnimatedSlideIn>
+      <AnimatedSlideIn delay={480}>
       <View style={styles.tricolorSmall}>
         <View style={[styles.tricolorBar, { backgroundColor: colors.saffron }]} />
         <View style={[styles.tricolorBar, { backgroundColor: colors.gray300 }]} />
         <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
       </View>
+      </AnimatedSlideIn>
     </View>
   );
 }
@@ -449,17 +508,20 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   checkText: { fontSize: 14, fontWeight: '500', color: colors.gray700 },
-  methodsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
+  methodsClusterWrap: {
+    width: CLUSTER_SIZE,
+    height: CLUSTER_SIZE,
+    alignSelf: 'center',
     marginBottom: 24,
   },
-  methodsDotWrap: { alignItems: 'center', marginBottom: 8 },
   methodsDot: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
     width: 80,
     height: 80,
+    marginLeft: -40,
+    marginTop: -40,
     borderRadius: 40,
     backgroundColor: colors.green50,
     borderWidth: 2,
@@ -478,13 +540,14 @@ const styles = StyleSheet.create({
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     backgroundColor: colors.gray50,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 14,
+    marginBottom: 12,
   },
-  featureText: { fontSize: 14, fontWeight: '500', color: colors.gray700 },
+  featureText: { fontSize: 15, fontWeight: '500', color: colors.gray700 },
   shieldWrap: {
     width: 128,
     height: 128,
