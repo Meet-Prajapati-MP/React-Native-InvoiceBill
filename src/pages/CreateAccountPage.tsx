@@ -16,6 +16,7 @@ import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
+import { API_BASE_DEBUG } from '../config/api';
 
 interface CreateAccountPageProps {
   onSuccess: () => void;
@@ -58,7 +59,7 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
         msg = Array.isArray(m) ? m[0] : m;
       } else if (err?.message) {
         if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
-          msg = 'Cannot reach server. Check that the backend is running and API URL in src/config/api.ts is correct (use 10.0.2.2:3000 for Android emulator, or your PC IP for physical device).';
+          msg = `Cannot reach server. Backend running? Using: ${API_BASE_DEBUG}. Android emulator: use http://10.0.2.2:3000 in .env. Physical device: use http://YOUR_PC_IP:3000. Restart Expo after changing .env.`;
         } else {
           msg = err.message;
         }

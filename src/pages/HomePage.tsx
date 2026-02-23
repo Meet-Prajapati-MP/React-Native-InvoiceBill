@@ -45,6 +45,7 @@ interface HomePageProps {
 export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction, onOpenScanQR }: HomePageProps) {
   const [showQROverlay, setShowQROverlay] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [balanceVisible, setBalanceVisible] = useState(true);
 
   const handleCopy = () => {
     setCopied(true);
@@ -59,7 +60,7 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.userName}>Arjun Mehta</Text>
+        <Text style={styles.userName}>Ankit Sharma</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onOpenNotifications} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={20} color={colors.navy} />
@@ -106,8 +107,20 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
         <View style={styles.balanceSection}>
           <Text style={styles.balanceLabel}>Total Balance</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceAmount}>{formatINR(12650)}</Text>
-            <Ionicons name="eye" size={18} color={colors.gray300} />
+            <Text style={styles.balanceAmount}>
+              {balanceVisible ? formatINR(12650) : '₹ •••••'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setBalanceVisible((v) => !v)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={balanceVisible ? 'eye-off-outline' : 'eye-outline'}
+                size={18}
+                color={colors.gray500}
+              />
+            </TouchableOpacity>
           </View>
         </View>
       </AnimatedSlideIn>

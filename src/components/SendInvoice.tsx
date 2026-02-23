@@ -9,6 +9,8 @@ import {
   TextInput,
   Switch,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
@@ -18,6 +20,7 @@ import { Card } from './ui/Card';
 import { CustomersPage } from '../pages/CustomersPage';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface Milestone {
   id: number;
@@ -37,12 +40,14 @@ interface Customer {
 interface SendInvoiceProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   preselectedCustomer?: Customer | null;
 }
 
 export function SendInvoice({
   isOpen,
   onClose,
+  onSuccess,
   preselectedCustomer,
 }: SendInvoiceProps) {
   const [step, setStep] = useState(preselectedCustomer ? 2 : 1);
@@ -73,6 +78,7 @@ export function SendInvoice({
   const [autoSend, setAutoSend] = useState(true);
   const [notifyBeforeSending, setNotifyBeforeSending] = useState(true);
   const [notifyDaysBefore, setNotifyDaysBefore] = useState('3');
+  const [isSending, setIsSending] = useState(false);
 
   const addItem = () => {
     setItems([...items, { id: Date.now(), name: '', qty: 1, rate: 0 }]);
@@ -95,6 +101,50 @@ export function SendInvoice({
   };
   const updateMilestone = (id: number, field: string, value: string | number) => {
     setMilestones(milestones.map((m) => (m.id === id ? { ...m, [field]: value } : m)));
+  };
+
+  const handleSendInvoice = async () => {
+    if (!selectedCustomer) {
+      Alert.alert('Error', 'Please select a customer.');
+      return;
+    }
+    const validItems = items.filter((i) => i.name?.trim());
+    if (validItems.length === 0) {
+      Alert.alert('Error', 'Please add at least one item with a name.');
+      return;
+    }
+    const payload = {
+      customer_id: selectedCustomer.id,
+      number: invoiceNumber.trim() || `INV-${Date.now()}`,
+      due_date: dueDate || undefined,
+      notes: notes.trim() || undefined,
+      include_gst: includeGST,
+      payment_type: paymentType,
+      items: validItems.map((item, idx) => ({
+        name: item.name?.trim() || 'Item',
+        qty: typeof item.qty === 'number' ? item.qty : 1,
+        rate: typeof item.rate === 'number' ? item.rate : Number(item.rate) || 0,
+        sort_order: idx,
+      })),
+    };
+    try {
+      setIsSending(true);
+      await api.post('/invoices', payload);
+      onSuccess?.();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to create invoice.';
+      Alert.alert('Error', msg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleFinalSend = () => {
+    if (paymentType === 'recurring') {
+      Alert.alert('Coming Soon', 'Recurring invoices will be available soon.');
+      return;
+    }
+    handleSendInvoice();
   };
 
   // Compute next 3 invoice dates for Schedule Preview
@@ -781,8 +831,16 @@ export function SendInvoice({
             <Button variant="outline" onPress={() => setStep(2)} style={styles.editBtn}>
               Edit Invoice Details
             </Button>
-            <Button onPress={onClose} style={styles.sendBtn}>
-              {paymentType === 'recurring' ? 'Create Recurring Invoice' : 'Send Invoice'}
+            <Button
+              onPress={handleFinalSend}
+              disabled={isSending}
+              style={styles.sendBtn}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                paymentType === 'recurring' ? 'Create Recurring Invoice' : 'Send Invoice'
+              )}
             </Button>
             <View style={{ height: 40 }} />
           </ScrollView>

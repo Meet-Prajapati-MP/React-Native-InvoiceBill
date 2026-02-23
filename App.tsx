@@ -79,6 +79,8 @@ function AppContent() {
   const [showMessageCentre, setShowMessageCentre] = useState(false);
   const [showVerificationCenter, setShowVerificationCenter] = useState(false);
   const [preselectedCustomerForInvoice, setPreselectedCustomerForInvoice] = useState<any>(null);
+  const [invoicesRefreshKey, setInvoicesRefreshKey] = useState(0);
+  const [quotationsRefreshKey, setQuotationsRefreshKey] = useState(0);
   const [showPaymentWebView, setShowPaymentWebView] = useState(false);
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState('');
   const [paymentError, setPaymentError] = useState('');
@@ -279,12 +281,14 @@ function AppContent() {
             <InvoicesPage
               onCreateInvoice={() => requireAuth(() => setShowSendInvoice(true))}
               onSelectInvoice={setSelectedInvoice}
+              refreshKey={invoicesRefreshKey}
             />
           )}
           {activeTab === 'quotes' && (
             <QuotationsPage
               onCreateQuote={() => requireAuth(() => setShowCreateQuotation(true))}
               onSelectQuote={setSelectedQuote}
+              refreshKey={quotationsRefreshKey}
             />
           )}
           {activeTab === 'customers' && (
@@ -479,11 +483,20 @@ function AppContent() {
           setShowSendInvoice(false);
           setPreselectedCustomerForInvoice(null);
         }}
+        onSuccess={() => {
+          setShowSendInvoice(false);
+          setPreselectedCustomerForInvoice(null);
+          setInvoicesRefreshKey((k) => k + 1);
+        }}
         preselectedCustomer={preselectedCustomerForInvoice}
       />
       <CreateQuotationFlow
         isOpen={showCreateQuotation}
         onClose={() => setShowCreateQuotation(false)}
+        onSuccess={() => {
+          setShowCreateQuotation(false);
+          setQuotationsRefreshKey((k) => k + 1);
+        }}
       />
       <MyProfilePage
         isOpen={showMyProfile}
@@ -560,7 +573,7 @@ function AppContent() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.white },
   splashContainer: { flex: 1, backgroundColor: '#2C264D' },
   safeArea: { flex: 1, backgroundColor: colors.gray100 },
   container: {

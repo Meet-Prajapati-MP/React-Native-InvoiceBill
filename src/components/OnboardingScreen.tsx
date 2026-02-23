@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
 import { colors } from '../theme/colors';
@@ -16,8 +17,15 @@ interface OnboardingScreenProps {
   onCreateAccount: () => void;
 }
 
+function getContainerBackground(slide: number) {
+  if (slide === 0 || slide === 4) return colors.navy;
+  if (slide === 5) return colors.purple50;
+  return colors.white;
+}
+
 export function OnboardingScreen({ onComplete, onSignIn, onCreateAccount }: OnboardingScreenProps) {
   const [slide, setSlide] = useState(0);
+  const insets = useSafeAreaInsets();
 
   const goNext = () => {
     if (slide < SLIDE_COUNT - 1) setSlide(s => s + 1);
@@ -26,9 +34,10 @@ export function OnboardingScreen({ onComplete, onSignIn, onCreateAccount }: Onbo
 
   const goSkip = () => setSlide(SLIDE_COUNT - 1);
   const isDark = slide === 0 || slide === 4;
+  const containerBg = getContainerBackground(slide);
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <View style={[styles.container, { backgroundColor: containerBg }]}>
       {slide < SLIDE_COUNT - 1 && (
         <View style={styles.skipWrap}>
           <TouchableOpacity onPress={goSkip}>
@@ -36,16 +45,29 @@ export function OnboardingScreen({ onComplete, onSignIn, onCreateAccount }: Onbo
           </TouchableOpacity>
         </View>
       )}
-      <View style={[styles.slideContainer, isDark && styles.slideContainerDark]}>
+      <View style={[styles.slideContainer, { backgroundColor: containerBg }]}>
         {slide === 0 && <Slide1 />}
         {slide === 1 && <Slide2 />}
         {slide === 2 && <Slide3 />}
         {slide === 3 && <Slide4 />}
         {slide === 4 && <Slide5 />}
-        {slide === 5 && <Slide6 onComplete={onComplete} onSignIn={onSignIn} onCreateAccount={onCreateAccount} />}
+        {slide === 5 && (
+          <Slide6
+            onComplete={onComplete}
+            onSignIn={onSignIn}
+            onCreateAccount={onCreateAccount}
+            bottomInset={insets.bottom}
+          />
+        )}
       </View>
       {slide < SLIDE_COUNT - 1 && (
-        <View style={[styles.bottomNav, isDark && styles.bottomNavDark]}>
+        <View
+          style={[
+            styles.bottomNav,
+            isDark && styles.bottomNavDark,
+            { paddingBottom: Math.max(20, insets.bottom) },
+          ]}
+        >
           <View style={styles.dots}>
             {Array.from({ length: SLIDE_COUNT }).map((_, i) => (
               <View
@@ -268,9 +290,19 @@ function Slide5() {
   );
 }
 
-function Slide6({ onComplete, onSignIn, onCreateAccount }: { onComplete: () => void; onSignIn: () => void; onCreateAccount: () => void }) {
+function Slide6({
+  onComplete,
+  onSignIn,
+  onCreateAccount,
+  bottomInset = 0,
+}: {
+  onComplete: () => void;
+  onSignIn: () => void;
+  onCreateAccount: () => void;
+  bottomInset?: number;
+}) {
   return (
-    <View style={[styles.slide, styles.slideGradient]}>
+    <View style={[styles.slide, styles.slideGradient, { paddingBottom: 24 + Math.max(0, bottomInset) }]}>
       <AnimatedSlideIn delay={80}>
       <Text style={styles.title2}>
         Empowering{'\n'}
@@ -338,9 +370,7 @@ function Slide6({ onComplete, onSignIn, onCreateAccount }: { onComplete: () => v
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  containerDark: { backgroundColor: colors.navy },
   slideContainer: { flex: 1 },
-  slideContainerDark: { backgroundColor: colors.navy },
   skipWrap: { position: 'absolute', top: 48, right: 24, zIndex: 30 },
   skip: { fontSize: 14, fontWeight: '500', color: colors.gray400 },
   skipLight: { color: 'rgba(255,255,255,0.7)' },
@@ -372,6 +402,7 @@ const styles = StyleSheet.create({
   nextText: { fontSize: 14, fontWeight: '700', color: colors.white },
   slide: {
     width,
+    flex: 1,
     minHeight: 500,
     paddingHorizontal: 28,
     paddingTop: 80,
@@ -407,9 +438,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   subtitle1Light: { fontSize: 18, color: colors.white, marginBottom: 32 },
-  slideWhite: { backgroundColor: colors.white },
-  slideNavy: { backgroundColor: colors.navy },
-  slideGradient: { backgroundColor: colors.purple50 },
+  slideWhite: { flex: 1, backgroundColor: colors.white },
+  slideNavy: { flex: 1, backgroundColor: colors.navy },
+  slideGradient: { flex: 1, backgroundColor: colors.purple50 },
   logoBox: {
     width: 112,
     height: 112,

@@ -73,7 +73,7 @@ export function SplashScreen() {
         <Animated.View style={[styles.logoWrapper, logoAnimatedStyle]}>
           <PLogo />
         </Animated.View>
-        <Animated.Text style={[styles.title, textAnimatedStyle]}>Invoices</Animated.Text>
+        <Animated.Text style={[styles.title, textAnimatedStyle]}>Trustopay</Animated.Text>
       </View>
     </LinearGradient>
   );

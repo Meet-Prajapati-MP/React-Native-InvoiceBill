@@ -9,6 +9,8 @@ import {
   TextInput,
   Switch,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
@@ -18,10 +20,12 @@ import { Card } from './ui/Card';
 import { CustomersPage } from '../pages/CustomersPage';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface CreateQuotationFlowProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 function toISODate(d: Date): string {
@@ -31,9 +35,10 @@ function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function CreateQuotationFlow({ isOpen, onClose }: CreateQuotationFlowProps) {
+export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotationFlowProps) {
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [quoteNumber, setQuoteNumber] = useState('QUO-007');
   const [quoteDate, setQuoteDate] = useState(toISODate(new Date()));
@@ -84,8 +89,47 @@ export function CreateQuotationFlow({ isOpen, onClose }: CreateQuotationFlowProp
 
   const handleNext = () => {
     if (step < 3) setStep(step + 1);
-    else onClose();
   };
+
+  const saveQuotation = async (status: 'draft' | 'sent') => {
+    if (!selectedCustomer) {
+      Alert.alert('Error', 'Please select a customer.');
+      return;
+    }
+    const validItems = items.filter((i) => i.name?.trim());
+    if (validItems.length === 0) {
+      Alert.alert('Error', 'Please add at least one item with a name.');
+      return;
+    }
+    const payload = {
+      customer_id: selectedCustomer.id,
+      quo_number: quoteNumber.trim() || `QUO-${Date.now()}`,
+      client_name: selectedCustomer.name,
+      amount: total,
+      date: quoteDate || undefined,
+      valid_until: validUntil || undefined,
+      status,
+      type: 'sent' as const,
+      items: validItems.map((item, idx) => ({
+        name: item.name?.trim() || 'Item',
+        qty: typeof item.qty === 'number' ? item.qty : 1,
+        rate: typeof item.rate === 'number' ? item.rate : Number(item.rate) || 0,
+        sort_order: idx,
+      })),
+    };
+    try {
+      setIsSaving(true);
+      await api.post('/quotations', payload);
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to save quotation.';
+      Alert.alert('Error', msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleBack = () => {
     if (step > 1) setStep(step - 1);
     else onClose();
@@ -393,11 +437,24 @@ export function CreateQuotationFlow({ isOpen, onClose }: CreateQuotationFlowProp
             </Card>
 
             <View style={styles.reviewActions}>
-              <Button variant="outline" onPress={onClose} style={styles.saveDraftBtn}>
-                Save Draft
+              <Button
+                variant="outline"
+                onPress={() => saveQuotation('draft')}
+                disabled={isSaving}
+                style={styles.saveDraftBtn}
+              >
+                {isSaving ? <ActivityIndicator size="small" color={colors.purple} /> : 'Save Draft'}
               </Button>
-              <Button onPress={onClose} style={styles.sendBtn}>
-                Send Quote
+              <Button
+                onPress={() => saveQuotation('sent')}
+                disabled={isSaving}
+                style={styles.sendBtn}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  'Send Quote'
+                )}
               </Button>
             </View>
             <View style={{ height: 40 }} />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 import { AnimatedSection } from '../components/AnimatedSection';
 
 interface Quotation {
@@ -26,32 +28,73 @@ interface Quotation {
   type: 'sent' | 'received';
 }
 
-const sentQuotations: Quotation[] = [
-  { id: '1', quoNumber: 'QUO-012', client: 'Design Hub', amount: 85000, date: '12 Feb, 2026', version: 'v2', validUntil: '12 Mar, 2026', viewStatus: 'Viewed 3 times • 14 Feb, 2:30 PM', status: 'sent', type: 'sent' },
-  { id: '2', quoNumber: 'QUO-011', client: 'Tech Solutions Ltd', amount: 120000, date: '10 Feb, 2026', version: 'v1', validUntil: '10 Mar, 2026', viewStatus: 'Not viewed yet', status: 'draft', type: 'sent' },
-  { id: '3', quoNumber: 'QUO-010', client: 'Creative Studio', amount: 55000, date: '8 Feb, 2026', version: 'v1', validUntil: '8 Mar, 2026', viewStatus: 'Viewed by client • 9 Feb, 11:00 AM', status: 'accepted', type: 'sent' },
-  { id: '4', quoNumber: 'QUO-009', client: 'Global Services', amount: 42000, date: '5 Feb, 2026', version: 'v2', validUntil: '5 Mar, 2026', viewStatus: 'Viewed 2 times • 6 Feb, 4:15 PM', status: 'converted', type: 'sent' },
-  { id: '5', quoNumber: 'QUO-008', client: 'Alpha Corp', amount: 95000, date: '3 Feb, 2026', version: 'v1', validUntil: '3 Mar, 2026', viewStatus: 'Not viewed yet', status: 'rejected', type: 'sent' },
-  { id: '6', quoNumber: 'QUO-007', client: 'Beta Systems', amount: 68000, date: '1 Feb, 2026', version: 'v1', validUntil: '1 Mar, 2026', viewStatus: 'Viewed by client • 2 Feb, 9:30 AM', status: 'sent', type: 'sent' },
-  { id: '7', quoNumber: 'QUO-006', client: 'Marketing Agency', amount: 35000, date: '28 Jan, 2026', version: 'v3', validUntil: '28 Feb, 2026', viewStatus: 'Viewed 1 time • 29 Jan, 3:00 PM', status: 'accepted', type: 'sent' },
-];
+function formatDateShort(d: string | null): string {
+  if (!d) return '';
+  const x = new Date(d);
+  return isNaN(x.getTime()) ? '' : x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
-const receivedQuotations: Quotation[] = [
-  { id: '8', quoNumber: 'QUO-R005', client: 'Design Studio', amount: 78000, date: '11 Feb, 2026', version: 'v1', validUntil: '11 Mar, 2026', viewStatus: 'Viewed 2 times • 12 Feb, 10:00 AM', status: 'sent', type: 'received' },
-  { id: '9', quoNumber: 'QUO-R004', client: 'Hosting Provider', amount: 24000, date: '9 Feb, 2026', version: 'v1', validUntil: '9 Mar, 2026', viewStatus: 'Not viewed yet', status: 'draft', type: 'received' },
-  { id: '10', quoNumber: 'QUO-R003', client: 'Software Tools Inc', amount: 156000, date: '6 Feb, 2026', version: 'v2', validUntil: '6 Mar, 2026', viewStatus: 'Viewed by client • 7 Feb, 2:45 PM', status: 'accepted', type: 'received' },
-  { id: '11', quoNumber: 'QUO-R002', client: 'Creative Agency', amount: 52000, date: '4 Feb, 2026', version: 'v1', validUntil: '4 Mar, 2026', viewStatus: 'Viewed 1 time • 5 Feb, 11:20 AM', status: 'sent', type: 'received' },
-  { id: '12', quoNumber: 'QUO-R001', client: 'Consulting Partners', amount: 98000, date: '2 Feb, 2026', version: 'v1', validUntil: '2 Mar, 2026', viewStatus: 'Not viewed yet', status: 'rejected', type: 'received' },
-];
+function toQuotation(raw: {
+  id: string;
+  quo_number: string;
+  client_name?: string;
+  amount: number;
+  date?: string;
+  valid_until?: string;
+  view_status?: string;
+  version?: string;
+  status: string;
+  type: string;
+  customers?: { name?: string } | null;
+}): Quotation {
+  const client = raw.client_name ?? (raw.customers as { name?: string })?.name ?? 'Unknown';
+  return {
+    id: raw.id,
+    quoNumber: raw.quo_number,
+    client,
+    amount: Number(raw.amount) || 0,
+    date: formatDateShort(raw.date),
+    validUntil: formatDateShort(raw.valid_until),
+    version: raw.version || 'v1',
+    viewStatus: raw.view_status || 'Not viewed yet',
+    status: (raw.status as Quotation['status']) || 'draft',
+    type: (raw.type as Quotation['type']) || 'sent',
+  };
+}
 
 interface QuotationsPageProps {
   onCreateQuote: () => void;
   onSelectQuote: (q: Quotation) => void;
+  refreshKey?: number;
 }
 
-export function QuotationsPage({ onCreateQuote, onSelectQuote }: QuotationsPageProps) {
+export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }: QuotationsPageProps) {
   const [tab, setTab] = useState<'sent' | 'received'>('sent');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sentQuotations, setSentQuotations] = useState<Quotation[]>([]);
+  const [receivedQuotations, setReceivedQuotations] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchQuotations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get<unknown[]>('/quotations');
+      const list = Array.isArray(data) ? data.map((r: any) => toQuotation(r)) : [];
+      const sent = list.filter((q) => q.type === 'sent');
+      const received = list.filter((q) => q.type === 'received');
+      setSentQuotations(sent);
+      setReceivedQuotations(received);
+    } catch {
+      setSentQuotations([]);
+      setReceivedQuotations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations, refreshKey]);
 
   const getStatusStyle = (s: string) => {
     const map: Record<string, { bg: string; text: string }> = {
@@ -122,7 +165,12 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote }: QuotationsPageP
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filtered.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={colors.purple} />
+            <Text style={[styles.emptyText, { marginTop: 12 }]}>Loading quotations...</Text>
+          </View>
+        ) : filtered.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No quotations found</Text>
           </View>

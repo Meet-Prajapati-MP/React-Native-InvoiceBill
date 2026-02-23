@@ -16,6 +16,7 @@ import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
+import { API_BASE_DEBUG } from '../config/api';
 
 interface SignInPageProps {
   onSuccess: () => void;
@@ -50,7 +51,7 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPasswor
         msg = Array.isArray(m) ? m[0] : m;
       } else if (err?.message) {
         if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
-          msg = 'Cannot reach server. Ensure backend is running and API URL in src/config/api.ts is correct.';
+          msg = `Cannot reach server. Backend running? Using: ${API_BASE_DEBUG}. Android emulator: http://10.0.2.2:3000. Physical device: http://YOUR_PC_IP:3000. Restart Expo after .env change.`;
         } else {
           msg = err.message;
         }

@@ -567,7 +567,14 @@ curl http://localhost:3000/customers -H "Authorization: Bearer YOUR_ACCESS_TOKEN
 | `SUPABASE_SERVICE_KEY` | Your service_role key from Supabase |
 | `JWT_SECRET` | Your random 32+ character secret |
 
-4. Railway will automatically redeploy when you save variables
+4. **Important:** After saving variables, click **Deploy** (or **Redeploy**) – variable changes are staged until you deploy.
+5. Use **Raw Editor** to paste from your local `.env` file if easier (format: `KEY=value` per line).
+
+**Troubleshooting "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set":**
+- Variable names must be **exact**: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (all caps, underscores).
+- Ensure you added variables to the **correct service** (the one running your backend from the `invoice-back` repo).
+- **Redeploy** after adding variables – changes don't apply until deployment completes.
+- Check **Settings → Variables** (or **Variables** tab) – both `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` should be listed.
 
 ### E4. Configure Build Settings (if needed)
 

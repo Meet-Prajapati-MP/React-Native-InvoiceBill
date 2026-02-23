@@ -85,29 +85,8 @@ function toInvoice(raw: {
   };
 }
 
-/** Dummy invoices for review when API returns empty */
-const DUMMY_SENT_INVOICES: Invoice[] = [
-  { id: 'd1', number: 'INV-101', client: 'Design Hub', amount: 45000, date: '10 Feb, 2026', dueDate: '25 Feb, 2026', status: 'paid', type: 'sent', customerEmail: 'accounts@designhub.in', customerPhone: '+91 98765 43210' },
-  { id: 'd2', number: 'INV-102', client: 'Tech Solutions Ltd', amount: 78000, date: '8 Feb, 2026', dueDate: '23 Feb, 2026', status: 'pending', type: 'sent', activity: 'Viewed 2 times', activityIcon: 'eye', customerEmail: 'billing@techsolutions.in' },
-  { id: 'd3', number: 'INV-103', client: 'Creative Studio', amount: 32500, date: '5 Feb, 2026', dueDate: '20 Feb, 2026', status: 'overdue', type: 'sent', customerPhone: '+91 91234 56789' },
-  { id: 'd4', number: 'INV-104', client: 'Global Services', amount: 120000, date: '1 Feb, 2026', dueDate: '16 Feb, 2026', status: 'paid', type: 'sent' },
-  { id: 'd5', number: 'INV-105', client: 'Alpha Corp', amount: 18500, date: '28 Jan, 2026', dueDate: '12 Feb, 2026', status: 'pending', type: 'sent', activity: 'Link sent', activityIcon: 'link' },
-  { id: 'd6', number: 'INV-106', client: 'Beta Systems', amount: 56000, date: '25 Jan, 2026', dueDate: '9 Feb, 2026', status: 'paid', type: 'sent' },
-];
-
-const DUMMY_RECEIVED_INVOICES: Invoice[] = [
-  { id: 'dr1', number: 'INV-R001', client: 'Design Studio', amount: 45000, date: '12 Feb, 2026', dueDate: '27 Feb, 2026', status: 'pending', type: 'received' },
-  { id: 'dr2', number: 'INV-R002', client: 'Hosting Provider', amount: 8400, date: '9 Feb, 2026', dueDate: '24 Feb, 2026', status: 'paid', type: 'received' },
-  { id: 'dr3', number: 'INV-R003', client: 'Marketing Agency', amount: 22000, date: '3 Feb, 2026', dueDate: '18 Feb, 2026', status: 'overdue', type: 'received' },
-  { id: 'dr4', number: 'INV-R004', client: 'Software Tools Inc', amount: 15000, date: '30 Jan, 2026', dueDate: '14 Feb, 2026', status: 'paid', type: 'received' },
-];
-
-const recurringInvoices: RecurringInvoice[] = [
-  { id: 'r1', client: 'Tech Solutions Ltd', amount: 10000, frequency: 'MONTHLY', nextDate: '24 Feb, 2026', status: 'active', type: 'sent', number: 'REC-001', date: '24 Jan, 2026' },
-  { id: 'r2', client: 'Creative Studio', amount: 25000, frequency: 'QUARTERLY', nextDate: '20 Apr, 2026', status: 'active', type: 'sent', number: 'REC-002', date: '20 Jan, 2026' },
-  { id: 'r3', client: 'Global Services', amount: 5000, frequency: 'WEEKLY', nextDate: '17 Feb, 2026', status: 'paused', type: 'sent', number: 'REC-003', date: '10 Feb, 2026' },
-  { id: 'r4', client: 'Hosting Provider', amount: 2000, frequency: 'MONTHLY', nextDate: '5 Mar, 2026', status: 'active', type: 'received', number: 'REC-004', date: '5 Feb, 2026' },
-];
+/** Recurring invoices – fetched from API when backend supports it; empty for now */
+const RECURRING_INVOICES: RecurringInvoice[] = [];
 
 type MainTab = 'sent' | 'received' | 'recurring';
 type RecurringFilter = 'all' | 'sent' | 'received';
@@ -181,11 +160,12 @@ function matchesAmountFilters(amount: number, filters: FilterState): boolean {
 interface InvoicesPageProps {
   onCreateInvoice: () => void;
   onSelectInvoice: (inv: Invoice | RecurringInvoice) => void;
+  refreshKey?: number;
 }
 
-export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageProps) {
-  const [sentInvoices, setSentInvoices] = useState<Invoice[]>(DUMMY_SENT_INVOICES);
-  const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>(DUMMY_RECEIVED_INVOICES);
+export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 }: InvoicesPageProps) {
+  const [sentInvoices, setSentInvoices] = useState<Invoice[]>([]);
+  const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>('sent');
   const [recurringFilter, setRecurringFilter] = useState<RecurringFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -200,17 +180,17 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
       const list = Array.isArray(data) ? data.map(toInvoice) : [];
       const sent = list.filter((i) => i.type === 'sent');
       const received = list.filter((i) => i.type === 'received');
-      setSentInvoices(sent.length > 0 ? sent : DUMMY_SENT_INVOICES);
-      setReceivedInvoices(received.length > 0 ? received : DUMMY_RECEIVED_INVOICES);
+      setSentInvoices(sent);
+      setReceivedInvoices(received);
     } catch {
-      setSentInvoices(DUMMY_SENT_INVOICES);
-      setReceivedInvoices(DUMMY_RECEIVED_INVOICES);
+      setSentInvoices([]);
+      setReceivedInvoices([]);
     }
   }, []);
 
   useEffect(() => {
     fetchInvoices();
-  }, [fetchInvoices]);
+  }, [fetchInvoices, refreshKey]);
 
   const getStatusStyle = (status: string) => {
     if (status === 'paid') return { bg: colors.green100, text: colors.green600 };
@@ -270,7 +250,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
         matchesAmountFilters(inv.amount, filters) &&
         matchesDateQuick(inv.date, filters.dateQuick)
     );
-    let recurring = recurringInvoices.filter((r) => {
+    let recurring = RECURRING_INVOICES.filter((r) => {
       if (recurringFilter !== 'all' && r.type !== recurringFilter) return false;
       if (!bySearch(r)) return false;
       if (filters.statuses.length > 0 && !filters.statuses.includes(r.status))
@@ -338,7 +318,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice }: InvoicesPageP
   const getTotalCount = () => {
     if (mainTab === 'sent') return sentInvoices.length;
     if (mainTab === 'received') return receivedInvoices.length;
-    return recurringInvoices.filter(
+    return RECURRING_INVOICES.filter(
       (r) => recurringFilter === 'all' || r.type === recurringFilter
     ).length;
   };
