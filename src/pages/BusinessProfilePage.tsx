@@ -163,7 +163,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Toast */}
         {showToast && (
@@ -725,7 +725,11 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray50,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   toast: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 60 : 100,
@@ -745,7 +749,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
@@ -843,7 +846,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,

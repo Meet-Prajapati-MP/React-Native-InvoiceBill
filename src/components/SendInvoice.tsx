@@ -287,7 +287,7 @@ export function SendInvoice({
 
   return (
     <>
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={handleBack}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.headerBtn}>
@@ -959,14 +959,17 @@ export function SendInvoice({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.white },
+  container: {
+    flex: 1,
+    backgroundColor: colors.white,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
   },

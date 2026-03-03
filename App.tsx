@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Modal, TouchableOpacity, Text } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Modal, TouchableOpacity, Text, BackHandler, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -49,6 +49,8 @@ import { ConfirmDialog } from './src/components/ui/ConfirmDialog';
 import { colors } from './src/theme/colors';
 import { SplashScreen } from './src/components/SplashScreen';
 import { api } from './src/services/api';
+import { useAppBackHandler } from './src/hooks/useAppBackHandler';
+import { getTopmostBackAction, isAtRoot } from './src/navigation/BackHandlerService';
 
 type Tab = 'home' | 'invoices' | 'quotes' | 'customers' | 'menu';
 
@@ -129,6 +131,7 @@ function AppContent() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const handleNavigate = (action: string) => {
     if (action === 'invoices') setActiveTab('invoices');
@@ -139,6 +142,144 @@ function AppContent() {
     else if (action === 'add-money') setShowAddMoney(true);
     else if (action === 'withdraw') setShowWithdraw(true);
   };
+
+  const overlayState = useMemo(
+    () => ({
+      showExitConfirm,
+      showLogoutConfirm,
+      showPaymentWebView: !!showPaymentWebView,
+      showVerificationCenter,
+      showMessageCentre,
+      showHelpCentre,
+      showItemList,
+      showReportsAnalytics,
+      showSendReminders,
+      showMyAddresses,
+      showTermsConditions,
+      showInvoiceSettings,
+      showBusinessProfile,
+      showActivity,
+      showBankAccounts,
+      showSubscriptionDetails,
+      showMyProfile,
+      showNotifications,
+      showCreateQuotation,
+      showSendInvoice,
+      showWithdraw,
+      showAddMoney,
+      showTransfer,
+      showScanQR,
+      selectedInvoice: !!selectedInvoice,
+      selectedQuote: !!selectedQuote,
+      selectedCustomer: !!selectedCustomer,
+      selectedTransaction: !!selectedTransaction,
+    }),
+    [
+      showExitConfirm,
+      showLogoutConfirm,
+      showPaymentWebView,
+      showVerificationCenter,
+      showMessageCentre,
+      showHelpCentre,
+      showItemList,
+      showReportsAnalytics,
+      showSendReminders,
+      showMyAddresses,
+      showTermsConditions,
+      showInvoiceSettings,
+      showBusinessProfile,
+      showActivity,
+      showBankAccounts,
+      showSubscriptionDetails,
+      showMyProfile,
+      showNotifications,
+      showCreateQuotation,
+      showSendInvoice,
+      showWithdraw,
+      showAddMoney,
+      showTransfer,
+      showScanQR,
+      selectedInvoice,
+      selectedQuote,
+      selectedCustomer,
+      selectedTransaction,
+    ],
+  );
+
+  const closeFns = useMemo(
+    () => ({
+      showExitConfirm: () => setShowExitConfirm(false),
+      showLogoutConfirm: () => setShowLogoutConfirm(false),
+      showPaymentWebView: () => {
+        setShowPaymentWebView(false);
+        setPaymentRedirectUrl('');
+        setSelectedInvoice(null);
+      },
+      showVerificationCenter: () => setShowVerificationCenter(false),
+      showMessageCentre: () => setShowMessageCentre(false),
+      showHelpCentre: () => setShowHelpCentre(false),
+      showItemList: () => setShowItemList(false),
+      showReportsAnalytics: () => setShowReportsAnalytics(false),
+      showSendReminders: () => setShowSendReminders(false),
+      showMyAddresses: () => setShowMyAddresses(false),
+      showTermsConditions: () => setShowTermsConditions(false),
+      showInvoiceSettings: () => setShowInvoiceSettings(false),
+      showBusinessProfile: () => setShowBusinessProfile(false),
+      showActivity: () => setShowActivity(false),
+      showBankAccounts: () => setShowBankAccounts(false),
+      showSubscriptionDetails: () => setShowSubscriptionDetails(false),
+      showMyProfile: () => setShowMyProfile(false),
+      showNotifications: () => setShowNotifications(false),
+      showCreateQuotation: () => setShowCreateQuotation(false),
+      showSendInvoice: () => {
+        setShowSendInvoice(false);
+        setPreselectedCustomerForInvoice(null);
+      },
+      showWithdraw: () => setShowWithdraw(false),
+      showAddMoney: () => setShowAddMoney(false),
+      showTransfer: () => setShowTransfer(false),
+      showScanQR: () => setShowScanQR(false),
+      selectedInvoice: () => setSelectedInvoice(null),
+      selectedQuote: () => setSelectedQuote(null),
+      selectedCustomer: () => setSelectedCustomer(null),
+      selectedTransaction: () => setSelectedTransaction(null),
+    }),
+    [],
+  );
+
+  const handleMainBack = useCallback(() => {
+    const fn = getTopmostBackAction({ overlays: overlayState, closeFns });
+    if (fn) fn();
+  }, [overlayState, closeFns]);
+
+  const handleAuthBack = useCallback(() => {
+    if (showResetPassword) {
+      setShowResetPassword(false);
+      setShowOtpVerification(true);
+    } else if (showOtpVerification) {
+      setShowOtpVerification(false);
+      setShowRequestOtp(true);
+    } else if (showRequestOtp) {
+      setShowRequestOtp(false);
+      setShowSignIn(true);
+    } else if (showCreateAccount) {
+      setShowCreateAccount(false);
+      setShowSignIn(true);
+    }
+  }, [showResetPassword, showOtpVerification, showRequestOtp, showCreateAccount]);
+
+  const mainAtRoot = isAtRoot({ overlays: overlayState, closeFns });
+  const authAtRoot =
+    !showResetPassword &&
+    !showOtpVerification &&
+    !showRequestOtp &&
+    !showCreateAccount;
+
+  useAppBackHandler(
+    isAuthenticated ? mainAtRoot : authAtRoot,
+    isAuthenticated ? handleMainBack : handleAuthBack,
+    () => setShowExitConfirm(true),
+  );
 
   if (showSplash || isLoading) {
     return <SplashScreen />;
@@ -648,6 +789,22 @@ function AppContent() {
           setShowSignIn(true);
         }}
         onCancel={() => setShowLogoutConfirm(false)}
+      />
+
+      <ConfirmDialog
+        visible={showExitConfirm}
+        title="Exit App"
+        message="Are you sure you want to exit?"
+        confirmLabel="Exit"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          setShowExitConfirm(false);
+          if (Platform.OS === 'android') {
+            BackHandler.exitApp();
+          }
+        }}
+        onCancel={() => setShowExitConfirm(false)}
       />
 
       <StatusBar style="dark" />

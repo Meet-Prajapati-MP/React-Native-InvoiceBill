@@ -274,7 +274,7 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.container}>
         {showToast && (
           <View
@@ -546,7 +546,11 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray50,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   toast: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 60 : 100,
@@ -570,8 +574,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
@@ -744,7 +747,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
   },

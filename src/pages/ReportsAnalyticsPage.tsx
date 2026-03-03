@@ -171,7 +171,7 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.container}>
         <View style={styles.headerSection}>
           <View style={styles.header}>
@@ -508,7 +508,11 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray50,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   headerSection: {
     backgroundColor: colors.white,
     borderBottomWidth: 1,
@@ -518,8 +522,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 8,
+    paddingVertical: 16,
   },
   backBtn: { padding: 8, marginRight: 8 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.navy },

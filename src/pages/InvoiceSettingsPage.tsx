@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -196,7 +197,7 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Toast */}
         {showToast && (
@@ -511,7 +512,11 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray50,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   toast: {
     position: 'absolute',
     top: 48,
@@ -536,8 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 12,
+    paddingVertical: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,

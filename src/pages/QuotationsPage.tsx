@@ -504,7 +504,7 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: { flex: 1, backgroundColor: colors.white },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

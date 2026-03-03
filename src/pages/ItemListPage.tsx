@@ -135,7 +135,7 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backBtn}>
@@ -228,13 +228,16 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.white,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray200,

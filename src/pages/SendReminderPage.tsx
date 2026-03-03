@@ -132,7 +132,7 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
   if (!isOpen) return null;
 
   return (
-    <Modal visible={isOpen} animationType="slide">
+    <Modal visible={isOpen} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.container}>
         {step === 2 ? (
           <View style={styles.successScreen}>
@@ -475,13 +475,16 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.gray50 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.gray50,
+    paddingTop: Platform.OS === 'android' ? 48 : 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 16,
+    paddingVertical: 16,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
