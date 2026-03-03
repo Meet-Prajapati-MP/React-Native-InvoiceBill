@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { SelectInput } from '../components/SelectInput';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface Term {
   id: string;
@@ -155,9 +156,22 @@ function truncate(str: string, max: number) {
   return str.slice(0, max).trim() + '...';
 }
 
+type TermsRow = { id: string; title: string; content: string; category?: string; is_default?: boolean; is_custom?: boolean };
+function mapTerm(row: TermsRow): Term {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    category: row.category,
+    isDefault: row.is_default,
+    isCustom: row.is_custom ?? true,
+  };
+}
+
 export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProps) {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
   const [customTerms, setCustomTerms] = useState<Term[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [editingTerm, setEditingTerm] = useState<Term | null>(null);
   const [previewTerm, setPreviewTerm] = useState<Term | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,6 +183,35 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
   const [formContent, setFormContent] = useState('');
   const [formIsDefault, setFormIsDefault] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const fetchTerms = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.get<TermsRow[]>('/terms');
+      setCustomTerms((data || []).map(mapTerm));
+    } catch {
+      setShowToast({ type: 'error', message: 'Failed to load terms' });
+      setTimeout(() => setShowToast(null), 2000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchTerms();
+    }
+  }, [isOpen]);
+
+  const showSuccessToast = (message: string) => {
+    setShowToast({ type: 'success', message });
+    setTimeout(() => setShowToast(null), 2000);
+  };
+
+  const showErrorToast = (message: string) => {
+    setShowToast({ type: 'error', message });
+    setTimeout(() => setShowToast(null), 2000);
+  };
 
   const handleCreateNew = () => {
     setEditingTerm(null);
@@ -190,22 +233,30 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
     setView('edit');
   };
 
-  const handleDuplicate = (term: Term) => {
-    const newTerm: Term = {
-      ...term,
-      id: Date.now().toString(),
-      title: `${term.title} (Copy)`,
-      isCustom: true,
-      isDefault: false,
-    };
-    setCustomTerms([...customTerms, newTerm]);
-    showSuccessToast('Term duplicated successfully! ✓');
+  const handleDuplicate = async (term: Term) => {
+    try {
+      const { data } = await api.post<TermsRow>('/terms', {
+        title: `${term.title} (Copy)`,
+        content: term.content,
+        category: term.category,
+        is_default: false,
+      });
+      setCustomTerms((prev) => [mapTerm(data), ...prev]);
+      showSuccessToast('Term duplicated successfully! ✓');
+    } catch {
+      showErrorToast('Failed to duplicate term');
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setCustomTerms(customTerms.filter((t) => t.id !== id));
-    setDeleteConfirmId(null);
-    showSuccessToast('Term deleted');
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/terms/${id}`);
+      setCustomTerms((prev) => prev.filter((t) => t.id !== id));
+      setDeleteConfirmId(null);
+      showSuccessToast('Term deleted');
+    } catch {
+      showErrorToast('Failed to delete term');
+    }
   };
 
   const validateForm = () => {
@@ -220,45 +271,50 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
     return Object.keys(errors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
     setIsSaving(true);
-    setTimeout(() => {
-      const newTerm: Term = {
-        id: editingTerm ? editingTerm.id : Date.now().toString(),
-        title: formTitle,
-        content: formContent,
-        category: formCategory,
-        isDefault: formIsDefault,
-        isCustom: true,
-      };
+    try {
       if (editingTerm) {
-        setCustomTerms(customTerms.map((t) => (t.id === editingTerm.id ? newTerm : t)));
+        const { data } = await api.patch<TermsRow>(`/terms/${editingTerm.id}`, {
+          title: formTitle.trim(),
+          content: formContent.trim(),
+          category: formCategory,
+          is_default: formIsDefault,
+        });
+        setCustomTerms((prev) => prev.map((t) => (t.id === editingTerm.id ? mapTerm(data) : t)));
         showSuccessToast('Term updated! ✓');
       } else {
-        setCustomTerms([...customTerms, newTerm]);
+        const { data } = await api.post<TermsRow>('/terms', {
+          title: formTitle.trim(),
+          content: formContent.trim(),
+          category: formCategory,
+          is_default: formIsDefault,
+        });
+        setCustomTerms((prev) => [mapTerm(data), ...prev]);
         showSuccessToast('Term created successfully! ✓');
       }
-      setIsSaving(false);
       setView('list');
-    }, 1000);
+    } catch {
+      showErrorToast('Failed to save term');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const showSuccessToast = (message: string) => {
-    setShowToast({ type: 'success', message });
-    setTimeout(() => setShowToast(null), 2000);
-  };
-
-  const handleUseTemplate = (template: Term) => {
-    const newTerm: Term = {
-      ...template,
-      id: Date.now().toString(),
-      title: template.title,
-      isCustom: true,
-      isDefault: false,
-    };
-    setCustomTerms([...customTerms, newTerm]);
-    showSuccessToast('Template added to your terms! ✓');
+  const handleUseTemplate = async (template: Term) => {
+    try {
+      const { data } = await api.post<TermsRow>('/terms', {
+        title: template.title,
+        content: template.content,
+        category: template.category,
+        is_default: false,
+      });
+      setCustomTerms((prev) => [mapTerm(data), ...prev]);
+      showSuccessToast('Template added to your terms! ✓');
+    } catch {
+      showErrorToast('Failed to add template');
+    }
   };
 
   const handleCustomizeTemplate = (template: Term) => {
@@ -306,7 +362,11 @@ export function TermsConditionsPage({ isOpen, onClose }: TermsConditionsPageProp
               <Text style={styles.sectionTitle}>MY CUSTOM TERMS</Text>
               <Text style={styles.sectionSub}>Terms you've created or customized</Text>
 
-              {customTerms.length === 0 ? (
+              {isLoading ? (
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyTitle}>Loading...</Text>
+                </View>
+              ) : customTerms.length === 0 ? (
                 <View style={styles.emptyCard}>
                   <View style={styles.emptyIcon}>
                     <Text style={styles.emptyEmoji}>📝</Text>
