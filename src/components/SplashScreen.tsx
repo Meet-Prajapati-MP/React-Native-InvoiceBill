@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -14,7 +14,6 @@ const COLORS = {
   purpleDark: '#4C1D95',
   purpleMid: '#6D28D9',
   purpleBright: '#8B5CF6',
-  pinkLogo: '#EC4899',
   white: '#FFFFFF',
 };
 
@@ -22,14 +21,7 @@ const LOGO_SIZE = 56;
 const DURATION = 600;
 const EASE = Easing.bezier(0.34, 1.56, 0.64, 1);
 
-/** Stylized P logo – rounded container, bold letter */
-function PLogo() {
-  return (
-    <View style={styles.logoBox}>
-      <Text style={styles.logoLetter}>P</Text>
-    </View>
-  );
-}
+const appIcon = require('../../assets/app-icon.png');
 
 export function SplashScreen() {
   const logoScale = useSharedValue(0);
@@ -71,7 +63,7 @@ export function SplashScreen() {
     >
       <View style={styles.content}>
         <Animated.View style={[styles.logoWrapper, logoAnimatedStyle]}>
-          <PLogo />
+          <Image source={appIcon} style={styles.logoImage} resizeMode="contain" />
         </Animated.View>
         <Animated.Text style={[styles.title, textAnimatedStyle]}>Trustopay</Animated.Text>
       </View>
@@ -95,19 +87,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoBox: {
+  logoImage: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     borderRadius: 16,
-    backgroundColor: COLORS.pinkLogo,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoLetter: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: COLORS.white,
-    letterSpacing: -0.5,
   },
   title: {
     fontSize: 32,
