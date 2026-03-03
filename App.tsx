@@ -302,6 +302,37 @@ function AppContent() {
         </GestureHandlerRootView>
       );
     }
+    // Fallback: never show home or main app when not logged in
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaProvider>
+          <SignInPage
+            onSuccess={() => {
+              setShowSignIn(false);
+              setShowOnboarding(false);
+            }}
+            onBack={() => setShowSignIn(false)}
+            onCreateAccount={() => {
+              setShowSignIn(false);
+              setShowCreateAccount(true);
+            }}
+            onForgotPassword={(prefillEmail) => {
+              setOtpFlowMode('forgot-password');
+              setForgotPasswordEmail(prefillEmail || '');
+              setShowSignIn(false);
+              setShowRequestOtp(true);
+            }}
+            onLoginWithOtp={(prefillEmail) => {
+              setOtpFlowMode('login');
+              setForgotPasswordEmail(prefillEmail || '');
+              setShowSignIn(false);
+              setShowRequestOtp(true);
+            }}
+          />
+          <StatusBar style="light" />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
   }
 
   const requireAuth = (action: () => void) => {
