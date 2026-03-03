@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useProfile } from '../context/ProfileContext';
 import { useBalance } from '../context/BalanceContext';
+import { useNotifications } from '../context/NotificationContext';
 import {
   View,
   Text,
@@ -47,6 +48,7 @@ interface HomePageProps {
 export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction, onOpenScanQR }: HomePageProps) {
   const { profile } = useProfile();
   const { balance } = useBalance();
+  const { unreadCount } = useNotifications();
   const [showQROverlay, setShowQROverlay] = useState(false);
   const [copied, setCopied] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
@@ -68,7 +70,11 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onOpenNotifications} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={20} color={colors.navy} />
-            <View style={styles.badge} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onOpenScanQR ? onOpenScanQR() : setShowQROverlay(true)}
@@ -232,12 +238,20 @@ const styles = StyleSheet.create({
   qrBtn: { backgroundColor: colors.purple100 },
   badge: {
     position: 'absolute',
-    top: 8,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 4,
+    right: 4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: colors.red500,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.white,
   },
   modalOverlay: { flex: 1, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '90%', maxWidth: 400, alignItems: 'center' },

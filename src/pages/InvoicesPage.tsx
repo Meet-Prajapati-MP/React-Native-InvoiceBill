@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -44,7 +45,7 @@ interface RecurringInvoice {
   id: string;
   client: string;
   amount: number;
-  frequency: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
+  frequency: string;
   nextDate: string;
   status: 'active' | 'paused';
   type: 'sent' | 'received';
@@ -58,36 +59,62 @@ function formatDateShort(d: string | null): string {
   return isNaN(x.getTime()) ? '' : x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function toInvoice(raw: {
-  id: string;
-  number: string;
-  status: string;
-  type: string;
-  invoice_date?: string;
-  due_date?: string;
-  customers?: { name?: string; email?: string; phone?: string } | null;
-  invoice_items?: { qty?: number; rate?: number }[];
-}): Invoice {
+function toInvoice(raw: Record<string, unknown>): Invoice {
   const cust = raw.customers as { name?: string; email?: string; phone?: string } | undefined;
-  const client = cust?.name ?? 'Unknown';
-  const items = raw.invoice_items ?? [];
-  const amount = items.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.rate) || 0), 0);
+  const client = cust?.name ?? (raw.client_name as string) ?? 'Unknown';
+  const itemsRaw = raw.invoice_items;
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+  const computedAmount = items.reduce((s: number, i: unknown) => {
+    const item = i as Record<string, unknown>;
+    const qty = Math.max(0, parseInt(String(item?.qty ?? 1), 10) || 1);
+    const rate = parseFloat(String(item?.rate ?? 0)) || 0;
+    return s + qty * rate;
+  }, 0);
+  const amount = typeof raw.amount === 'number' ? raw.amount : (typeof raw.amount === 'string' ? parseFloat(raw.amount) || computedAmount : computedAmount);
+  const type = (raw.type as string) || 'sent';
   return {
-    id: raw.id,
-    number: raw.number,
+    id: String(raw.id ?? ''),
+    number: String(raw.number ?? ''),
     client,
-    amount,
-    date: formatDateShort(raw.invoice_date),
-    dueDate: formatDateShort(raw.due_date),
-    status: (raw.status as Invoice['status']) || 'pending',
-    type: (raw.type as Invoice['type']) || 'sent',
+    amount: Number.isFinite(amount) ? amount : computedAmount,
+    date: formatDateShort((raw.invoice_date as string) ?? (raw.created_at as string)),
+    dueDate: formatDateShort(raw.due_date as string),
+    status: ((raw.status as string) || 'pending') as Invoice['status'],
+    type: (type === 'received' ? 'received' : 'sent') as Invoice['type'],
     customerEmail: cust?.email,
     customerPhone: cust?.phone,
   };
 }
 
-/** Recurring invoices – fetched from API when backend supports it; empty for now */
-const RECURRING_INVOICES: RecurringInvoice[] = [];
+function toRecurringInvoice(raw: {
+  id: string;
+  number?: string;
+  client_name?: string;
+  amount?: number;
+  next_date?: string;
+  start_date?: string;
+  created_at?: string;
+  status?: string;
+  type?: string;
+  frequency?: string;
+  customers?: { name?: string } | null;
+}): RecurringInvoice {
+  const cust = raw.customers as { name?: string } | undefined;
+  const client = raw.client_name ?? cust?.name ?? 'Unknown';
+  const items = (raw as { recurring_invoice_items?: { qty?: number; rate?: number }[] }).recurring_invoice_items ?? [];
+  const amount = raw.amount ?? items.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.rate) || 0), 0);
+  return {
+    id: raw.id,
+    number: raw.number ?? '',
+    client,
+    amount,
+    nextDate: formatDateShort(raw.next_date),
+    date: formatDateShort(raw.start_date ?? raw.created_at),
+    status: (raw.status as RecurringInvoice['status']) || 'active',
+    type: (raw.type as RecurringInvoice['type']) || 'sent',
+    frequency: raw.frequency ?? 'MONTHLY',
+  };
+}
 
 type MainTab = 'sent' | 'received' | 'recurring';
 type RecurringFilter = 'all' | 'sent' | 'received';
@@ -167,6 +194,7 @@ interface InvoicesPageProps {
 export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 }: InvoicesPageProps) {
   const [sentInvoices, setSentInvoices] = useState<Invoice[]>([]);
   const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>([]);
+  const [recurringInvoices, setRecurringInvoices] = useState<RecurringInvoice[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>('sent');
   const [recurringFilter, setRecurringFilter] = useState<RecurringFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -174,24 +202,68 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
   const [sortKey, setSortKey] = useState('date-desc');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showSortPanel, setShowSortPanel] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const extractList = (res: unknown): unknown[] => {
+    if (Array.isArray(res)) return res;
+    if (res && typeof res === 'object') {
+      const o = res as Record<string, unknown>;
+      if (Array.isArray(o.data)) return o.data;
+      if (Array.isArray(o.invoices)) return o.invoices;
+    }
+    return [];
+  };
 
   const fetchInvoices = useCallback(async () => {
     try {
-      const { data } = await api.get<unknown[]>('/invoices');
-      const list = Array.isArray(data) ? data.map(toInvoice) : [];
+      setFetchError(null);
+      const { data } = await api.get<unknown>(`/invoices?_=${Date.now()}`);
+      const raw = extractList(data);
+      const list = raw.map((r) => toInvoice(r as Record<string, unknown>));
       const sent = list.filter((i) => i.type === 'sent');
       const received = list.filter((i) => i.type === 'received');
       setSentInvoices(sent);
       setReceivedInvoices(received);
-    } catch {
+      if (__DEV__ && list.length > 0) console.log('[InvoicesPage] Loaded', list.length, 'invoices');
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        ?? (err as { message?: string })?.message
+        ?? 'Could not load invoices';
+      setFetchError(msg);
       setSentInvoices([]);
       setReceivedInvoices([]);
+      if (__DEV__) console.warn('[InvoicesPage] Failed to fetch invoices:', err);
     }
   }, []);
 
+  const fetchRecurringInvoices = useCallback(async () => {
+    try {
+      const { data } = await api.get<unknown>(`/recurring-invoices?_=${Date.now()}`);
+      const raw = extractList(data);
+      const list = raw.map((r) => toRecurringInvoice(r as Record<string, unknown>));
+      setRecurringInvoices(list);
+    } catch {
+      setRecurringInvoices([]);
+    }
+  }, []);
+
+  const doFetch = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchInvoices(), fetchRecurringInvoices()]);
+    setLoading(false);
+  }, [fetchInvoices, fetchRecurringInvoices]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await doFetch();
+    setRefreshing(false);
+  }, [doFetch]);
+
   useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices, refreshKey]);
+    doFetch();
+  }, [doFetch, refreshKey]);
 
   const getStatusStyle = (status: string) => {
     if (status === 'paid') return { bg: colors.green100, text: colors.green600 };
@@ -251,7 +323,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
         matchesAmountFilters(inv.amount, filters) &&
         matchesDateQuick(inv.date, filters.dateQuick)
     );
-    let recurring = RECURRING_INVOICES.filter((r) => {
+    let recurring = recurringInvoices.filter((r) => {
       if (recurringFilter !== 'all' && r.type !== recurringFilter) return false;
       if (!bySearch(r)) return false;
       if (filters.statuses.length > 0 && !filters.statuses.includes(r.status))
@@ -319,7 +391,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
   const getTotalCount = () => {
     if (mainTab === 'sent') return sentInvoices.length;
     if (mainTab === 'received') return receivedInvoices.length;
-    return RECURRING_INVOICES.filter(
+    return recurringInvoices.filter(
       (r) => recurringFilter === 'all' || r.type === recurringFilter
     ).length;
   };
@@ -443,12 +515,35 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
         </View>
       )}
 
+      {fetchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{fetchError}</Text>
+          <TouchableOpacity onPress={onRefresh} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {loading && !refreshing ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.purple} />
+          <Text style={styles.loadingText}>Loading invoices...</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.purple]}
+            tintColor={colors.purple}
+          />
+        }
       >
-        {mainTab === 'sent' && !isFiltered && filteredSent.length === 0 && (
+        {mainTab === 'sent' && !isFiltered && filteredSent.length === 0 && !loading && (
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Invoices Yet</Text>
@@ -466,7 +561,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
             </AnimatedSection>
           ))}
 
-        {mainTab === 'received' && !isFiltered && filteredReceived.length === 0 && (
+        {mainTab === 'received' && !isFiltered && filteredReceived.length === 0 && !loading && (
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Invoices Yet</Text>
@@ -484,7 +579,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
             </AnimatedSection>
           ))}
 
-        {mainTab === 'recurring' && !isFiltered && filteredRecurringList.length === 0 && (
+        {mainTab === 'recurring' && !isFiltered && filteredRecurringList.length === 0 && !loading && (
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Recurring Invoices Yet</Text>
@@ -567,6 +662,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
 
         <View style={{ height: 120 }} />
       </ScrollView>
+      )}
 
       <FilterPanel
         isOpen={showFilterPanel}
@@ -937,6 +1033,45 @@ const styles = StyleSheet.create({
   },
   subPillTextActive: {
     color: colors.white,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.red50,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 24,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.red100,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.red600,
+  },
+  retryBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginLeft: 12,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.red600,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: colors.gray500,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },

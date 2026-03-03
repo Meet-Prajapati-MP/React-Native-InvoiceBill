@@ -66,9 +66,8 @@ export function DatePickerInput({ value, onChangeText, label, placeholder = 'Sel
           mode="date"
           display="default"
           onChange={handleChange}
-          {...(Platform.OS === 'ios' && {
-            accentColor: colors.purple,
-          })}
+          accentColor={colors.purple}
+          themeVariant="light"
         />
       )}
       {show && Platform.OS === 'ios' && (

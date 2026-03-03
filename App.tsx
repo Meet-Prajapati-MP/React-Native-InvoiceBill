@@ -8,6 +8,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { BalanceProvider } from './src/context/BalanceContext';
+import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
+import { NotificationPanel } from './src/components/NotificationPanel';
 import { BottomNav } from './src/components/BottomNav';
 import { OnboardingScreen } from './src/components/OnboardingScreen';
 import { HomePage } from './src/pages/HomePage';
@@ -54,6 +56,7 @@ const ONBOARDING_SEEN_KEY = 'ONBOARDING_SEEN';
 
 function AppContent() {
   const { isAuthenticated, logout, isLoading, setAuthFromSession } = useAuth();
+  const { refreshUnreadCount } = useNotifications();
   const [showSplash, setShowSplash] = useState(true);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
@@ -381,21 +384,10 @@ function AppContent() {
         </View>
       </SafeAreaView>
 
-      {/* Notification Panel Modal */}
-      <Modal visible={showNotifications} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Notifications</Text>
-              <TouchableOpacity onPress={() => setShowNotifications(false)}>
-                <Text style={styles.closeBtn}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalPlaceholder}>No new notifications</Text>
-          </View>
-        </View>
-      </Modal>
+      <NotificationPanel
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
 
       <TransactionDetail
         isOpen={!!selectedTransaction}
@@ -527,19 +519,21 @@ function AppContent() {
           setShowSendInvoice(false);
           setPreselectedCustomerForInvoice(null);
         }}
-        onSuccess={() => {
+        onSuccess={async () => {
           setShowSendInvoice(false);
           setPreselectedCustomerForInvoice(null);
           setInvoicesRefreshKey((k) => k + 1);
+          try { await refreshUnreadCount(); } catch { /* non-fatal */ }
         }}
         preselectedCustomer={preselectedCustomerForInvoice}
       />
       <CreateQuotationFlow
         isOpen={showCreateQuotation}
         onClose={() => setShowCreateQuotation(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           setShowCreateQuotation(false);
           setQuotationsRefreshKey((k) => k + 1);
+          try { await refreshUnreadCount(); } catch { /* non-fatal */ }
         }}
       />
       <MyProfilePage
@@ -705,7 +699,9 @@ const styles = StyleSheet.create({
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
     </AuthProvider>
   );
 }

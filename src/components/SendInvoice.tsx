@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { DatePickerInput, formatDateForDisplay } from './ui/DatePickerInput';
 import { Card } from './ui/Card';
 import { CustomersPage } from '../pages/CustomersPage';
 import { AlertDialog } from './ui/AlertDialog';
-import { formatINR } from '../lib/utils';
+import { formatINR, formatAmountDisplay, parseAmountInput } from '../lib/utils';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
 
@@ -67,7 +67,7 @@ export function SendInvoice({
   const [enableReminders, setEnableReminders] = useState(false);
   // Recurring-specific state
   const [recurringName, setRecurringName] = useState('');
-  const [recurringFrequency, setRecurringFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [recurringFrequency, setRecurringFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [generateOn, setGenerateOn] = useState<'day' | 'last'>('day');
   const [generateDay, setGenerateDay] = useState('1');
   const [recurringStartDate, setRecurringStartDate] = useState('');
@@ -80,6 +80,13 @@ export function SendInvoice({
   const [notifyDaysBefore, setNotifyDaysBefore] = useState('3');
   const [isSending, setIsSending] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(preselectedCustomer ? 2 : 1);
+      setSelectedCustomer(preselectedCustomer || null);
+    }
+  }, [isOpen, preselectedCustomer]);
 
   const addItem = () => {
     setItems([...items, { id: Date.now(), name: '', qty: 1, rate: 0 }]);
@@ -121,10 +128,12 @@ export function SendInvoice({
       notes: notes.trim() || undefined,
       include_gst: includeGST,
       payment_type: paymentType,
+      recipient_phone: selectedCustomer.phone || undefined,
+      recipient_email: (selectedCustomer as { email?: string }).email || undefined,
       items: validItems.map((item, idx) => ({
         name: item.name?.trim() || 'Item',
         qty: typeof item.qty === 'number' ? item.qty : 1,
-        rate: typeof item.rate === 'number' ? item.rate : Number(item.rate) || 0,
+        rate: typeof item.rate === 'number' ? item.rate : parseAmountInput(String(item.rate)) || 0,
         sort_order: idx,
       })),
     };
@@ -132,8 +141,74 @@ export function SendInvoice({
       setIsSending(true);
       await api.post('/invoices', payload);
       onSuccess?.();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to create invoice.';
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string }; message?: string }; message?: string })
+        ?.response?.data?.message ?? (err as { message?: string })?.message ?? 'Failed to create invoice.';
+      setAlertDialog({ title: 'Error', message: msg });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleCreateRecurringInvoice = async () => {
+    if (!selectedCustomer) {
+      setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
+      return;
+    }
+    const validItems = items.filter((i) => i.name?.trim());
+    if (validItems.length === 0) {
+      setAlertDialog({ title: 'Error', message: 'Please add at least one item with a name.' });
+      return;
+    }
+    if (!recurringName.trim()) {
+      setAlertDialog({ title: 'Error', message: 'Recurring invoice name is required.' });
+      return;
+    }
+    if (!recurringStartDate) {
+      setAlertDialog({ title: 'Error', message: 'Start date is required.' });
+      return;
+    }
+    const freqMap = {
+      daily: 'DAILY' as const,
+      weekly: 'WEEKLY' as const,
+      monthly: 'MONTHLY' as const,
+      quarterly: 'QUARTERLY' as const,
+      yearly: 'YEARLY' as const,
+    };
+    const payload = {
+      customer_id: selectedCustomer.id,
+      recipient_phone: selectedCustomer.phone || undefined,
+      recipient_email: (selectedCustomer as { email?: string }).email || undefined,
+      number: invoiceNumber.trim() || `INV-REC-${Date.now()}`,
+      name: recurringName.trim(),
+      frequency: freqMap[recurringFrequency],
+      generate_on: generateOn,
+      generate_day: Math.min(31, Math.max(1, parseInt(generateDay, 10) || 1)),
+      start_date: recurringStartDate,
+      end_type: recurringEnds,
+      end_after_count: recurringEnds === 'after' ? parseInt(recurringEndAfterCount, 10) || undefined : undefined,
+      end_date: recurringEnds === 'ondate' && recurringEndDate ? recurringEndDate : undefined,
+      payment_due_days: paymentDueDays === 'receipt' ? '0' : paymentDueDays,
+      auto_send: autoSend,
+      notify_before_sending: notifyBeforeSending,
+      notify_days_before: parseInt(notifyDaysBefore, 10) || 3,
+      include_gst: includeGST,
+      notes: notes.trim() || undefined,
+      items: validItems.map((item, idx) => ({
+        name: item.name?.trim() || 'Item',
+        qty: typeof item.qty === 'number' ? item.qty : 1,
+        rate: typeof item.rate === 'number' ? item.rate : parseAmountInput(String(item.rate)) || 0,
+        sort_order: idx,
+      })),
+    };
+    try {
+      setIsSending(true);
+      await api.post('/recurring-invoices', payload);
+      onSuccess?.();
+      onClose();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })
+        ?.response?.data?.message ?? (err as { message?: string })?.message ?? 'Failed to create recurring invoice.';
       setAlertDialog({ title: 'Error', message: msg });
     } finally {
       setIsSending(false);
@@ -142,7 +217,7 @@ export function SendInvoice({
 
   const handleFinalSend = () => {
     if (paymentType === 'recurring') {
-      setAlertDialog({ title: 'Coming Soon', message: 'Recurring invoices will be available soon.' });
+      handleCreateRecurringInvoice();
       return;
     }
     handleSendInvoice();
@@ -170,6 +245,10 @@ export function SendInvoice({
       } else if (recurringFrequency === 'yearly') {
         const d = new Date(base.getFullYear() + i, base.getMonth(), generateOn === 'last' ? 0 : dayOfMonth);
         if (generateOn === 'last') d.setMonth(d.getMonth() + 1), d.setDate(0);
+        dates.push(`${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}, ${d.getFullYear()}`);
+      } else if (recurringFrequency === 'quarterly') {
+        const d = new Date(base);
+        d.setMonth(d.getMonth() + (i + 1) * 3);
         dates.push(`${d.toLocaleString('default', { month: 'short' })} ${d.getDate()}, ${d.getFullYear()}`);
       } else {
         const d = new Date(base);
@@ -324,7 +403,7 @@ export function SendInvoice({
                     <View style={styles.recurringField}>
                       <Text style={styles.inputLabel}>Frequency</Text>
                       <View style={styles.pillRow}>
-                        {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((f) => (
+                        {(['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] as const).map((f) => (
                           <TouchableOpacity
                             key={f}
                             onPress={() => setRecurringFrequency(f)}
@@ -505,6 +584,7 @@ export function SendInvoice({
                     {recurringFrequency === 'monthly' && generateOn === 'last' && 'Last day of every month'}
                     {recurringFrequency === 'weekly' && 'Every week'}
                     {recurringFrequency === 'daily' && 'Every day'}
+                    {recurringFrequency === 'quarterly' && 'Every quarter'}
                     {recurringFrequency === 'yearly' && `Yearly on day ${generateDay}`}
                   </Text>
                   <Text style={styles.scheduleNext}>Next 3 invoices:</Text>
@@ -577,8 +657,8 @@ export function SendInvoice({
                       <View style={styles.milestoneField}>
                         <Input
                           label="Amount (₹)"
-                          value={ms.amount ? String(ms.amount) : ''}
-                          onChangeText={(t) => updateMilestone(ms.id, 'amount', Number(t) || 0)}
+                          value={ms.amount ? formatAmountDisplay(String(ms.amount)) : ''}
+                          onChangeText={(t) => updateMilestone(ms.id, 'amount', parseAmountInput(t) || 0)}
                           placeholder="0"
                         />
                       </View>
@@ -636,8 +716,8 @@ export function SendInvoice({
                     <View style={styles.itemRate}>
                       <Input
                         placeholder="Rate (₹)"
-                        value={item.rate ? String(item.rate) : ''}
-                        onChangeText={(t) => updateItem(item.id, 'rate', Number(t) || 0)}
+                        value={item.rate ? formatAmountDisplay(String(item.rate)) : ''}
+                        onChangeText={(t) => updateItem(item.id, 'rate', parseAmountInput(t) || 0)}
                       />
                     </View>
                   </View>

@@ -95,7 +95,7 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
 
   useEffect(() => {
     fetchQuotations();
-  }, [fetchQuotations, refreshKey]);
+  }, [fetchQuotations, refreshKey, tab]);
 
   const getStatusStyle = (s: string) => {
     const map: Record<string, { bg: string; text: string }> = {

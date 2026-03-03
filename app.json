@@ -47,12 +47,9 @@
         {
           "android": {
             "datePicker": {
-              "colorAccent": {
-                "light": "#7C3AED"
-              },
-              "colorControlActivated": {
-                "light": "#7C3AED"
-              }
+              "colorAccent": { "light": "#7C3AED" },
+              "colorControlActivated": { "light": "#7C3AED" },
+              "textColorPrimary": { "light": "#7C3AED" }
             }
           }
         }
