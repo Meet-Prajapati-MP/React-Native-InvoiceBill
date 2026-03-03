@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface VerificationCenterPageProps {
   isOpen: boolean;
@@ -95,15 +96,35 @@ function VerificationCard({
   );
 }
 
+type VerificationStatusRow = {
+  pan?: string;
+  gstin?: string;
+  pan_number?: string;
+  pan_holder_name?: string;
+  gstin_number?: string;
+};
+
+function maskPan(pan: string): string {
+  if (!pan || pan.length < 6) return pan;
+  return 'XXXX' + pan.slice(-6);
+}
+function maskGstin(gstin: string): string {
+  if (!gstin || gstin.length < 8) return gstin;
+  return gstin.slice(0, 4) + 'XXXXXXX' + gstin.slice(-4);
+}
+
 export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPageProps) {
   const [verifications, setVerifications] = useState<VerificationState>(INITIAL_STATE);
   const [activeFlow, setActiveFlow] = useState<'pan' | 'gstin' | 'bank' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showBenefits, setShowBenefits] = useState(false);
   const [panNumber, setPanNumber] = useState('');
-  const [panName, setPanName] = useState('Ankit Shah');
+  const [panName, setPanName] = useState('');
   const [gstinNumber, setGstinNumber] = useState('');
+  const [storedPanValue, setStoredPanValue] = useState<string | null>(null);
+  const [storedGstinValue, setStoredGstinValue] = useState<string | null>(null);
   const [bankHolder, setBankHolder] = useState('Ankit Shah');
   const [bankAccount, setBankAccount] = useState('');
   const [bankConfirm, setBankConfirm] = useState('');
@@ -123,35 +144,84 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
     setTimeout(() => setShowToast(null), 3000);
   };
 
-  const handlePanSubmit = () => {
-    if (panNumber.replace(/\s/g, '').length !== 10) {
+  const fetchStatus = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.get<VerificationStatusRow | null>('/verification-status');
+      if (data) {
+        setVerifications((p) => ({
+          ...p,
+          pan: (data.pan as VerificationStatus) ?? p.pan,
+          gstin: (data.gstin as VerificationStatus) ?? p.gstin,
+        }));
+        if (data.pan_number) setStoredPanValue(data.pan_number);
+        if (data.pan_holder_name) setPanName(data.pan_holder_name);
+        if (data.gstin_number) setStoredGstinValue(data.gstin_number);
+      }
+    } catch {
+      showError('Failed to load verification status');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) fetchStatus();
+  }, [isOpen]);
+
+  const handlePanSubmit = async () => {
+    const trimmed = panNumber.replace(/\s/g, '');
+    if (trimmed.length !== 10) {
       showError('Invalid PAN format');
       return;
     }
+    if (!panName.trim() || panName.trim().length < 2) {
+      showError('Name on PAN card is required');
+      return;
+    }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await api.post('/verification-status/pan', {
+        pan_number: trimmed.toUpperCase(),
+        pan_holder_name: panName.trim(),
+      });
       setVerifications((p) => ({ ...p, pan: 'verified' }));
+      setStoredPanValue(trimmed.toUpperCase());
+      setPanName(panName.trim());
       showSuccess('PAN Verified Successfully!');
       setActiveFlow(null);
       setPanNumber('');
-      setPanName('Ankit Shah');
-    }, 2000);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string }; status?: number } };
+      const msg = err?.response?.data?.message ?? (err?.response?.status === 401 ? 'Please sign in again' : 'Failed to save PAN');
+      showError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleGstinSubmit = () => {
-    if (gstinNumber.replace(/\s/g, '').length !== 15) {
+  const handleGstinSubmit = async () => {
+    const trimmed = gstinNumber.replace(/\s/g, '');
+    if (trimmed.length !== 15) {
       showError('Invalid GSTIN format');
       return;
     }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await api.post('/verification-status/gstin', {
+        gstin_number: trimmed.toUpperCase(),
+      });
       setVerifications((p) => ({ ...p, gstin: 'verified' }));
+      setStoredGstinValue(trimmed.toUpperCase());
       showSuccess('GSTIN Verified Successfully!');
       setActiveFlow(null);
       setGstinNumber('');
-    }, 2000);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to save GSTIN';
+      showError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBankSubmit = () => {
@@ -224,17 +294,20 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
             icon="card-outline"
             title="PAN Card"
             status={verifications.pan}
-            description="Verify your identity for secure transactions"
-            actionLabel="Upload PAN Card"
-            onAction={() => setActiveFlow('pan')}
+            value={verifications.pan === 'verified' && storedPanValue ? maskPan(storedPanValue) : undefined}
+            subValue={verifications.pan === 'verified' && panName ? panName : undefined}
+            description={verifications.pan !== 'verified' ? 'Verify your identity for secure transactions' : undefined}
+            actionLabel={verifications.pan !== 'verified' ? 'Upload PAN Card' : undefined}
+            onAction={verifications.pan !== 'verified' ? () => setActiveFlow('pan') : undefined}
           />
           <VerificationCard
             icon="business-outline"
             title="GSTIN"
             status={verifications.gstin}
-            description="For GST-registered businesses (Optional)"
-            actionLabel="Add GSTIN"
-            onAction={() => setActiveFlow('gstin')}
+            value={verifications.gstin === 'verified' && storedGstinValue ? maskGstin(storedGstinValue) : undefined}
+            description={verifications.gstin !== 'verified' ? 'For GST-registered businesses (Optional)' : undefined}
+            actionLabel={verifications.gstin !== 'verified' ? 'Add GSTIN' : undefined}
+            onAction={verifications.gstin !== 'verified' ? () => setActiveFlow('gstin') : undefined}
           />
           <VerificationCard
             icon="wallet-outline"
@@ -265,7 +338,7 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
               <Text style={styles.flowHint}>Format: AAAAA9999A</Text>
               <Input label="Name on PAN Card *" value={panName} onChangeText={setPanName} />
               <Text style={styles.flowHint}>Must match your registered name</Text>
-              <Text style={styles.uploadLabel}>Upload PAN Card Image *</Text>
+              <Text style={styles.uploadLabel}>Upload PAN Card Image (Optional)</Text>
               <TouchableOpacity style={styles.uploadZone}>
                 <Ionicons name="cloud-upload-outline" size={24} color={colors.purple} />
                 <Text style={styles.uploadText}>Upload Front Side</Text>
@@ -304,7 +377,7 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
             </ScrollView>
             <View style={styles.flowFooterRow}>
               <Button variant="outline" onPress={() => setActiveFlow(null)} style={styles.flowFooterBtn}>Skip</Button>
-              <Button onPress={handleGstinSubmit} disabled={isSubmitting || !gstinNumber} style={[styles.flowFooterBtn, { flex: 2 }]}>
+              <Button onPress={handleGstinSubmit} disabled={isSubmitting || !gstinNumber} style={{ ...styles.flowFooterBtn, flex: 2 }}>
                 {isSubmitting ? 'Verifying...' : 'Verify GSTIN'}
               </Button>
             </View>
