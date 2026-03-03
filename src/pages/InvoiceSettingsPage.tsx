@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -15,6 +16,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { SelectInput } from '../components/SelectInput';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 type FormatComponentType =
   | 'prefix'
@@ -86,6 +88,7 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
   const [padding, setPadding] = useState(3);
   const [skipDeleted, setSkipDeleted] = useState(true);
   const [showComponentPicker, setShowComponentPicker] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [customComponents, setCustomComponents] = useState<FormatComponent[]>([
     { id: '1', type: 'prefix', value: 'INV', label: 'Prefix' },
@@ -155,16 +158,80 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
       .join('');
   };
 
-  const handleSave = () => {
+  const loadSettings = useCallback(async (target: 'invoices' | 'quotes') => {
+    try {
+      const { data } = await api.get<{
+        format_type?: string;
+        selected_template?: string;
+        starting_number?: string;
+        reset_option?: string;
+        padding?: number;
+        duplicate_check?: string;
+        manual_override?: boolean;
+        skip_deleted?: boolean;
+        custom_components?: FormatComponent[];
+      } | null>(`/invoice-settings?target=${target}`);
+      if (data) {
+        setFormatType((data.format_type as 'preset' | 'custom') || 'preset');
+        setSelectedTemplate(data.selected_template || 'year-seq');
+        setStartingNumber(data.starting_number || '001');
+        setResetOption(data.reset_option || 'never');
+        setPadding(data.padding ?? 3);
+        setDuplicateCheck((data.duplicate_check as 'error' | 'auto') || 'error');
+        setManualOverride(data.manual_override ?? false);
+        setSkipDeleted(data.skip_deleted ?? true);
+        if (Array.isArray(data.custom_components) && data.custom_components.length > 0) {
+          setCustomComponents(
+            data.custom_components.map((c, i) => ({
+              id: (c as FormatComponent).id || String(i),
+              type: (c as FormatComponent).type,
+              value: (c as FormatComponent).value,
+              label: (c as FormatComponent).label,
+            }))
+          );
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+      loadSettings(activeTab).finally(() => setLoading(false));
+    }
+  }, [isOpen, activeTab, loadSettings]);
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    setShowToast(null);
+    try {
+      const payload = {
+        target: activeTab,
+        format_type: formatType,
+        selected_template: selectedTemplate,
+        starting_number: startingNumber,
+        reset_option: resetOption,
+        padding,
+        duplicate_check: duplicateCheck,
+        manual_override: manualOverride,
+        skip_deleted: skipDeleted,
+        custom_components: formatType === 'custom' ? customComponents : [],
+      };
+      await api.post('/invoice-settings', payload);
       setShowToast({ type: 'success', message: 'Invoice settings saved! ✓' });
       setTimeout(() => {
         setShowToast(null);
         onClose();
       }, 2000);
-    }, 1500);
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setShowToast({ type: 'warning', message: msg || 'Failed to save settings' });
+      setTimeout(() => setShowToast(null), 3000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const addCustomComponent = (
@@ -221,6 +288,12 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
         </View>
 
         {/* Tabs */}
+        {loading && (
+          <View style={styles.loadingBar}>
+            <ActivityIndicator size="small" color={colors.purple} />
+            <Text style={styles.loadingText}>Loading settings...</Text>
+          </View>
+        )}
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'invoices' && styles.tabActive]}
@@ -459,7 +532,7 @@ export function InvoiceSettingsPage({ isOpen, onClose }: InvoiceSettingsPageProp
         <View style={styles.footer}>
           <Button
             onPress={handleSave}
-            disabled={isSaving}
+            disabled={loading || isSaving}
             style={styles.saveBtn}
           >
             {isSaving ? (
@@ -548,6 +621,15 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginLeft: -8 },
   title: { fontSize: 18, fontWeight: '700', color: colors.navy, marginLeft: 8 },
+  loadingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: colors.purple50,
+  },
+  loadingText: { fontSize: 14, color: colors.purple },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.white,

@@ -26,7 +26,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.meetprajapati.invoicebilltrustopay"
+      "package": "com.meetprajapati.invoicebilltrustopay",
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ]
     },
     "web": {
       "favicon": "./assets/app-icon.png"
@@ -47,9 +51,15 @@
         {
           "android": {
             "datePicker": {
-              "colorAccent": { "light": "#7C3AED" },
-              "colorControlActivated": { "light": "#7C3AED" },
-              "textColorPrimary": { "light": "#7C3AED" }
+              "colorAccent": {
+                "light": "#7C3AED"
+              },
+              "colorControlActivated": {
+                "light": "#7C3AED"
+              },
+              "textColorPrimary": {
+                "light": "#7C3AED"
+              }
             }
           }
         }
@@ -64,9 +74,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "2138ff42-eed9-4f1c-9b6b-510a749750f7"
+        "projectId": "3774e015-5ef5-4a07-97e8-3d966b289569"
       }
     },
-    "owner": "meetmontu"
+    "owner": "meetmontuu"
   }
 }

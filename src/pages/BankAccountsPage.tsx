@@ -26,6 +26,18 @@ interface BankAccount {
   is_verified?: boolean;
 }
 
+/** Indian bank account: 9–18 digits */
+function isValidAccountNumber(value: string): boolean {
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 9 && digits.length <= 18;
+}
+
+/** Indian IFSC: 11 chars – 4 letters, 0, 6 alphanumeric */
+function isValidIFSC(value: string): boolean {
+  const upper = value.trim().toUpperCase();
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(upper);
+}
+
 /** Dummy bank accounts for review when API returns empty */
 const DUMMY_ACCOUNTS: BankAccount[] = [
   { id: 'ba1', account_holder: 'Arjun Mehta', account_number_last4: '4532', ifsc: 'HDFC0001234', bank_name: 'HDFC Bank', is_verified: true },
@@ -66,25 +78,48 @@ export function BankAccountsPage({ isOpen, onClose, onBeforeAddAccount }: BankAc
 
   const handleAdd = async () => {
     if (onBeforeAddAccount && !onBeforeAddAccount()) return;
-    if (!accountHolderName.trim() || !ifscCode.trim()) {
-      setError('Account holder and IFSC are required');
+    setError(null);
+
+    const holder = accountHolderName.trim();
+    const acctNum = accountNumber.replace(/\D/g, '');
+    const ifsc = ifscCode.trim().toUpperCase();
+
+    if (!holder) {
+      setError('Account holder name is required');
       return;
     }
-    setError(null);
+    if (!acctNum) {
+      setError('Account number is required');
+      return;
+    }
+    if (!isValidAccountNumber(accountNumber)) {
+      setError('Account number must be 9–18 digits');
+      return;
+    }
+    if (!ifsc) {
+      setError('IFSC code is required');
+      return;
+    }
+    if (!isValidIFSC(ifscCode)) {
+      setError('Invalid IFSC code. Use 11 characters (e.g. HDFC0001234)');
+      return;
+    }
+
     setAdding(true);
     try {
-      const last4 = accountNumber.replace(/\D/g, '').slice(-4) || undefined;
-      const { data } = await api.post<BankAccount>('/bank-accounts', {
-        account_holder: accountHolderName.trim(),
-        ifsc: ifscCode.trim(),
+      const last4 = acctNum.slice(-4);
+      await api.post<BankAccount>('/bank-accounts', {
+        account_holder: holder,
+        ifsc,
         account_number_last4: last4,
       });
-      setAccounts((prev) => [data, ...prev]);
       setAccountNumber('');
       setIfscCode('');
       setAccountHolderName('');
-    } catch {
-      setError('Failed to add account');
+      await fetchAccounts();
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || 'Failed to add account');
     } finally {
       setAdding(false);
     }
@@ -145,14 +180,18 @@ export function BankAccountsPage({ isOpen, onClose, onBeforeAddAccount }: BankAc
             <Input
               label="Account Number"
               value={accountNumber}
-              onChangeText={setAccountNumber}
-              placeholder="Enter account number"
+              onChangeText={(t) => setAccountNumber(t.replace(/\D/g, ''))}
+              placeholder="9–18 digits"
+              keyboardType="numeric"
+              maxLength={18}
             />
             <Input
               label="IFSC Code"
               value={ifscCode}
-              onChangeText={setIfscCode}
-              placeholder="Enter IFSC code"
+              onChangeText={(t) => setIfscCode(t.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 11))}
+              placeholder="e.g. HDFC0001234"
+              autoCapitalize="characters"
+              maxLength={11}
             />
             <Input
               label="Account Holder Name"

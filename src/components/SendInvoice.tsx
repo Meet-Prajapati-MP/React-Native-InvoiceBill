@@ -21,6 +21,7 @@ import { AlertDialog } from './ui/AlertDialog';
 import { formatINR, formatAmountDisplay, parseAmountInput } from '../lib/utils';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
+import { useInvoiceSettings } from '../context/InvoiceSettingsContext';
 
 interface Milestone {
   id: number;
@@ -80,13 +81,15 @@ export function SendInvoice({
   const [notifyDaysBefore, setNotifyDaysBefore] = useState('3');
   const [isSending, setIsSending] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+  const invoiceSettings = useInvoiceSettings();
 
   useEffect(() => {
     if (isOpen) {
       setStep(preselectedCustomer ? 2 : 1);
       setSelectedCustomer(preselectedCustomer || null);
+      invoiceSettings?.getNextInvoiceNumber().then((num) => setInvoiceNumber(num));
     }
-  }, [isOpen, preselectedCustomer]);
+  }, [isOpen, preselectedCustomer, invoiceSettings]);
 
   const addItem = () => {
     setItems([...items, { id: Date.now(), name: '', qty: 1, rate: 0 }]);
@@ -844,10 +847,12 @@ export function SendInvoice({
             <Card style={styles.deliveryCard}>
               <Text style={styles.deliveryTitle}>Send Invoice Via</Text>
               <View style={styles.deliveryRow}>
-                <View style={styles.deliveryIconWrap}>
-                  <Ionicons name="notifications-outline" size={14} color={colors.purple} />
+                <View style={styles.deliveryLeft}>
+                  <View style={styles.deliveryIconWrap}>
+                    <Ionicons name="notifications-outline" size={14} color={colors.purple} />
+                  </View>
+                  <Text style={styles.deliveryText}>App Notification</Text>
                 </View>
-                <Text style={styles.deliveryText}>App Notification</Text>
                 <View style={styles.deliveryCheck}>
                   <Ionicons name="checkmark" size={12} color={colors.white} />
                 </View>

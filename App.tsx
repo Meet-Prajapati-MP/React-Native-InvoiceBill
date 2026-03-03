@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { BalanceProvider } from './src/context/BalanceContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
+import { InvoiceSettingsProvider } from './src/context/InvoiceSettingsContext';
 import { NotificationPanel } from './src/components/NotificationPanel';
 import { BottomNav } from './src/components/BottomNav';
 import { OnboardingScreen } from './src/components/OnboardingScreen';
@@ -888,7 +889,9 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <AppContent />
+        <InvoiceSettingsProvider>
+          <AppContent />
+        </InvoiceSettingsProvider>
       </NotificationProvider>
     </AuthProvider>
   );

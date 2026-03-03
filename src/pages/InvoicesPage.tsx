@@ -338,6 +338,9 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
     recurring = [...recurring].sort(sortFn);
     return { sent, received, recurring };
   }, [
+    sentInvoices,
+    receivedInvoices,
+    recurringInvoices,
     searchQuery,
     filters,
     sortKey,

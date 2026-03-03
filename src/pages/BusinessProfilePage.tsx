@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  TextInput,
   Switch,
   Platform,
   Image,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -19,6 +18,24 @@ import { Card } from '../components/ui/Card';
 import { SelectInput } from '../components/SelectInput';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
+
+function isValidPAN(v: string): boolean {
+  return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v.trim().toUpperCase());
+}
+function isValidGSTIN(v: string): boolean {
+  return /^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/.test(v.trim().toUpperCase());
+}
+function isValidIFSC(v: string): boolean {
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(v.trim().toUpperCase());
+}
+function isValidPincode(v: string): boolean {
+  return /^\d{6}$/.test(v.replace(/\D/g, ''));
+}
+function isValidAccountNumber(v: string): boolean {
+  const d = v.replace(/\D/g, '');
+  return d.length >= 9 && d.length <= 18;
+}
 
 interface BusinessProfilePageProps {
   isOpen: boolean;
@@ -80,7 +97,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
   const [showFullPreview, setShowFullPreview] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: 'Ankit Shah',
+    fullName: '',
     professionalTitle: '',
     pan: '',
     companyName: '',
@@ -104,6 +121,49 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get<Record<string, unknown> | null>('/business-profiles');
+      if (data) {
+        setAccountType((data.account_type as 'individual' | 'business') || null);
+        setFormData({
+          fullName: String(data.full_name ?? ''),
+          professionalTitle: String(data.professional_title ?? ''),
+          pan: String(data.pan ?? ''),
+          companyName: String(data.company_name ?? ''),
+          role: String(data.role ?? 'Owner'),
+          businessType: String(data.business_type ?? ''),
+          industry: String(data.industry ?? ''),
+          registrationNumber: String(data.registration_number ?? ''),
+          gstin: String(data.gstin ?? ''),
+          addressLine1: String(data.address_line1 ?? ''),
+          addressLine2: String(data.address_line2 ?? ''),
+          city: String(data.city ?? ''),
+          state: String(data.state ?? ''),
+          pincode: String(data.pincode ?? ''),
+          country: String(data.country ?? 'India'),
+          accountHolder: String(data.account_holder ?? ''),
+          accountNumber: '',
+          confirmAccountNumber: '',
+          ifsc: String(data.ifsc ?? ''),
+          bankName: String(data.bank_name ?? ''),
+          branchName: String(data.branch_name ?? ''),
+        });
+        if (data.logo_url) setLogo(String(data.logo_url));
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) fetchProfile();
+  }, [isOpen, fetchProfile]);
 
   const handleInputChange = (field: string, value: string) => {
     let formatted = value;
@@ -121,30 +181,83 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
     }
   };
 
-  const handleSave = () => {
-    if (!accountType) return;
+  const validateForm = (): boolean => {
+    if (!accountType) return false;
+    const newErrors: Record<string, string> = {};
     const required = accountType === 'individual'
       ? ['fullName', 'addressLine1', 'city', 'state', 'pincode']
       : ['companyName', 'fullName', 'addressLine1', 'city', 'state', 'pincode'];
-    const newErrors: Record<string, string> = {};
     for (const f of required) {
-      if (!(formData as any)[f]?.trim()) newErrors[f] = 'Required';
+      if (!(formData as Record<string, string>)[f]?.trim()) newErrors[f] = 'Required';
+    }
+    if (formData.pan.trim() && !isValidPAN(formData.pan)) {
+      newErrors.pan = 'Invalid PAN. Use 10 chars e.g. ABCDE1234F';
+    }
+    if (formData.gstin.trim() && !isValidGSTIN(formData.gstin)) {
+      newErrors.gstin = 'Invalid GSTIN. Use 15 chars e.g. 24ABCDE1234F1Z5';
+    }
+    if (formData.pincode.trim() && !isValidPincode(formData.pincode)) {
+      newErrors.pincode = 'PIN code must be 6 digits';
+    }
+    if (showBankDetails) {
+      if (formData.accountNumber && !isValidAccountNumber(formData.accountNumber)) {
+        newErrors.accountNumber = 'Account number must be 9–18 digits';
+      }
+      if (formData.accountNumber && formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber) {
+        newErrors.confirmAccountNumber = 'Account numbers do not match';
+      }
+      if (formData.ifsc.trim() && !isValidIFSC(formData.ifsc)) {
+        newErrors.ifsc = 'Invalid IFSC. Use 11 chars e.g. HDFC0001234';
+      }
     }
     setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!accountType) return;
+    if (!validateForm()) {
       setShowToast({ type: 'error', message: 'Please fix errors before saving.' });
       setTimeout(() => setShowToast(null), 3000);
       return;
     }
     setIsSaving(true);
-    setTimeout(() => {
+    setShowToast(null);
+    try {
+      const last4 = formData.accountNumber.replace(/\D/g, '').slice(-4) || null;
+      await api.post('/business-profiles', {
+        account_type: accountType,
+        full_name: formData.fullName.trim(),
+        professional_title: formData.professionalTitle.trim() || null,
+        pan: formData.pan.trim() || null,
+        company_name: formData.companyName.trim() || null,
+        role: formData.role || null,
+        business_type: formData.businessType || null,
+        industry: formData.industry || null,
+        registration_number: formData.registrationNumber.trim() || null,
+        gstin: formData.gstin.trim() || null,
+        address_line1: formData.addressLine1.trim(),
+        address_line2: formData.addressLine2.trim() || null,
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        pincode: formData.pincode.replace(/\D/g, ''),
+        country: formData.country || 'India',
+        account_holder: formData.accountHolder.trim() || null,
+        account_number_last4: last4,
+        ifsc: formData.ifsc.trim() || null,
+        bank_name: formData.bankName.trim() || null,
+        branch_name: formData.branchName.trim() || null,
+        logo_url: logo || null,
+      });
+      setShowToast({ type: 'success', message: 'Business profile saved! ✓' });
+      setTimeout(() => { setShowToast(null); onClose(); }, 2000);
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setShowToast({ type: 'error', message: msg || 'Failed to save profile' });
+      setTimeout(() => setShowToast(null), 3000);
+    } finally {
       setIsSaving(false);
-      setShowToast({ type: 'success', message: 'Business profile updated! ✓' });
-      setTimeout(() => {
-        setShowToast(null);
-        onClose();
-      }, 2000);
-    }, 1500);
+    }
   };
 
   const handleLogoUpload = () => {
@@ -185,6 +298,12 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
           <Text style={styles.headerTitle}>Business Profile</Text>
         </View>
 
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={colors.purple} />
+            <Text style={styles.loadingText}>Loading profile...</Text>
+          </View>
+        ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           {/* Account Type */}
           <Card style={styles.section}>
@@ -222,6 +341,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                       value={formData.fullName}
                       onChangeText={(v) => handleInputChange('fullName', v)}
                       placeholder="Enter your full name"
+                      error={errors.fullName}
                     />
                     <Input
                       label="Professional Title"
@@ -234,6 +354,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                       value={formData.pan}
                       onChangeText={(v) => handleInputChange('pan', v)}
                       placeholder="ABCDE1234F"
+                      error={errors.pan}
                     />
                   </>
                 ) : (
@@ -243,11 +364,13 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                       value={formData.companyName}
                       onChangeText={(v) => handleInputChange('companyName', v)}
                       placeholder="Enter company name"
+                      error={errors.companyName}
                     />
                     <Input
                       label="Your Name *"
                       value={formData.fullName}
                       onChangeText={(v) => handleInputChange('fullName', v)}
+                      error={errors.fullName}
                     />
                     <SelectInput
                       label="Your Role"
@@ -280,12 +403,14 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                       value={formData.gstin}
                       onChangeText={(v) => handleInputChange('gstin', v)}
                       placeholder="24ABCDE1234F1Z5"
+                      error={errors.gstin}
                     />
                     <Input
                       label="Company PAN"
                       value={formData.pan}
                       onChangeText={(v) => handleInputChange('pan', v)}
                       placeholder="ABCDE1234F"
+                      error={errors.pan}
                     />
 
                     {/* Logo - Business only */}
@@ -340,6 +465,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                   value={formData.addressLine1}
                   onChangeText={(v) => handleInputChange('addressLine1', v)}
                   placeholder="Building No., Street"
+                  error={errors.addressLine1}
                 />
                 <Input
                   label="Address Line 2"
@@ -351,6 +477,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                   label="City *"
                   value={formData.city}
                   onChangeText={(v) => handleInputChange('city', v)}
+                  error={errors.city}
                 />
                 <SelectInput
                   label="State *"
@@ -358,12 +485,16 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                   onValueChange={(v) => handleInputChange('state', v)}
                   options={STATES}
                   placeholder="Select State"
+                  error={errors.state}
                 />
                 <Input
                   label="PIN Code *"
                   value={formData.pincode}
                   onChangeText={(v) => handleInputChange('pincode', v)}
                   placeholder="6 digits"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  error={errors.pincode}
                 />
                 <SelectInput
                   label="Country"
@@ -404,6 +535,8 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                         onChangeText={(v) => handleInputChange('accountNumber', v)}
                         placeholder="9-18 digits"
                         secureTextEntry={!showAccountNumber}
+                        keyboardType="numeric"
+                        error={errors.accountNumber}
                       />
                       <TouchableOpacity
                         style={styles.eyeBtn}
@@ -416,12 +549,19 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                       label="Confirm Account Number"
                       value={formData.confirmAccountNumber}
                       onChangeText={(v) => handleInputChange('confirmAccountNumber', v)}
+                      placeholder="Re-enter account number"
+                      secureTextEntry={!showAccountNumber}
+                      keyboardType="numeric"
+                      error={errors.confirmAccountNumber}
                     />
                     <Input
                       label="IFSC Code"
                       value={formData.ifsc}
                       onChangeText={(v) => handleInputChange('ifsc', v)}
                       placeholder="SBIN0001234"
+                      maxLength={11}
+                      autoCapitalize="characters"
+                      error={errors.ifsc}
                     />
                     <Input
                       label="Bank Name"
@@ -479,12 +619,13 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
 
           <View style={{ height: 100 }} />
         </ScrollView>
+        )}
 
         {/* Footer */}
         <View style={styles.footer}>
           <Button
             onPress={handleSave}
-            disabled={!accountType || isSaving}
+            disabled={loading || !accountType || isSaving}
             style={styles.saveBtn}
           >
             {isSaving ? 'Saving...' : 'Save Business Profile'}
@@ -755,6 +896,8 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 8, marginRight: 8 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.navy },
+  loadingWrap: { flex: 1, paddingVertical: 48, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 14, color: colors.gray500, marginTop: 12 },
   scroll: { flex: 1 },
   scrollContent: { padding: 20 },
   section: { marginBottom: 24 },

@@ -11,6 +11,9 @@ interface InputProps {
   secureTextEntry?: boolean;
   editable?: boolean;
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'number-pad';
+  maxLength?: number;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  error?: string;
 }
 
 export function Input({
@@ -22,6 +25,9 @@ export function Input({
   secureTextEntry,
   editable = true,
   keyboardType,
+  maxLength,
+  autoCapitalize,
+  error,
 }: InputProps) {
   return (
     <View style={styles.container}>
@@ -35,7 +41,10 @@ export function Input({
         secureTextEntry={secureTextEntry}
         editable={editable}
         keyboardType={keyboardType}
+        maxLength={maxLength}
+        autoCapitalize={autoCapitalize}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -50,6 +59,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     marginBottom: 6,
   },
+  error: { fontSize: 12, color: colors.red500, marginTop: 4 },
   input: {
     height: 44,
     borderWidth: 1,

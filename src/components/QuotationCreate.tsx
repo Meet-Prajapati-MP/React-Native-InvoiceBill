@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { AlertDialog } from './ui/AlertDialog';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
+import { useInvoiceSettings } from '../context/InvoiceSettingsContext';
 
 interface CreateQuotationFlowProps {
   isOpen: boolean;
@@ -60,6 +61,13 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
 
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState(false);
   const [sendViaEmail, setSendViaEmail] = useState(false);
+  const invoiceSettings = useInvoiceSettings();
+
+  useEffect(() => {
+    if (isOpen) {
+      invoiceSettings?.getNextQuoteNumber().then((num) => setQuoteNumber(num));
+    }
+  }, [isOpen, invoiceSettings]);
 
   const addItem = () => {
     setItems([...items, { id: Date.now(), name: '', qty: 1, rate: 0 }]);
@@ -383,12 +391,14 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
             <Card style={styles.deliveryCard}>
               <Text style={styles.deliveryTitle}>Send Quote Via</Text>
               <View style={styles.deliveryRow}>
-                <View style={styles.deliveryIconWrap}>
-                  <Ionicons name="notifications" size={14} color={colors.purple} />
-                </View>
-                <View style={styles.deliveryTextWrap}>
-                  <Text style={styles.deliveryText}>App Notification</Text>
-                  <Text style={styles.deliverySub}>Mandatory</Text>
+                <View style={styles.deliveryLeft}>
+                  <View style={styles.deliveryIconWrap}>
+                    <Ionicons name="notifications" size={14} color={colors.purple} />
+                  </View>
+                  <View style={styles.deliveryTextWrap}>
+                    <Text style={styles.deliveryText}>App Notification</Text>
+                    <Text style={styles.deliverySub}>Mandatory</Text>
+                  </View>
                 </View>
                 <View style={styles.deliveryCheck}>
                   <Ionicons name="checkmark" size={12} color={colors.white} />
