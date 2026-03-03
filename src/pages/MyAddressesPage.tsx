@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { SelectInput } from '../components/SelectInput';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface Address {
   id: string;
@@ -42,43 +43,49 @@ interface MyAddressesPageProps {
   onClose: () => void;
 }
 
-const INITIAL_ADDRESSES: Address[] = [
-  {
-    id: '1',
-    type: 'home',
-    businessType: 'individual',
-    isDefault: true,
-    fullName: 'Ankit Shah',
-    professionalTitle: 'Graphic Designer',
-    phone: '+91 98765 43210',
-    email: 'ankit@trustopay.com',
-    building: '123, Sahajanand Apartments',
-    street: 'Near Railway Station, Alkapuri',
-    city: 'Vadodara',
-    state: 'Gujarat',
-    pincode: '390007',
-    country: 'India',
-    pan: 'ABCDE1234F',
-  },
-  {
-    id: '2',
-    type: 'business',
-    businessType: 'pvt_ltd',
-    isDefault: false,
-    fullName: 'Trustopay Innovations Pvt Ltd',
-    phone: '+91 80 1234 5678',
-    email: 'info@trustopay.com',
-    website: 'https://trustopay.com',
-    building: 'Office 301, Tech Park',
-    street: 'HSR Layout',
-    city: 'Bangalore',
-    state: 'Karnataka',
-    pincode: '560102',
-    country: 'India',
-    gstin: '29ABCDE1234F1Z5',
-    cin: 'U72900KA2020PTC123456',
-  },
-];
+type AddressRow = {
+  id: string;
+  type: string;
+  business_type?: string;
+  is_default?: boolean;
+  full_name: string;
+  professional_title?: string;
+  phone: string;
+  email?: string;
+  website?: string;
+  building?: string;
+  street?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country?: string;
+  gstin?: string;
+  pan?: string;
+  cin?: string;
+};
+
+function mapAddress(row: AddressRow): Address {
+  return {
+    id: row.id,
+    type: (row.type as Address['type']) || 'home',
+    businessType: row.business_type || 'individual',
+    isDefault: !!row.is_default,
+    fullName: row.full_name,
+    professionalTitle: row.professional_title,
+    phone: row.phone,
+    email: row.email,
+    website: row.website,
+    building: row.building || '',
+    street: row.street || '',
+    city: row.city,
+    state: row.state,
+    pincode: row.pincode,
+    country: row.country || 'India',
+    gstin: row.gstin,
+    pan: row.pan,
+    cin: row.cin,
+  };
+}
 
 const BUSINESS_TYPES = [
   { value: 'individual', label: 'Individual / Freelancer' },
@@ -109,7 +116,8 @@ const STATES = [
 
 export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
   const [view, setView] = useState<'list' | 'form'>('list');
-  const [addresses, setAddresses] = useState<Address[]>(INITIAL_ADDRESSES);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showToast, setShowToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -126,6 +134,23 @@ export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
     phone: '',
     email: '',
   });
+
+  const fetchAddresses = async () => {
+    setIsLoading(true);
+    try {
+      const { data } = await api.get<AddressRow[]>('/addresses');
+      setAddresses((data || []).map(mapAddress));
+    } catch {
+      setShowToast({ type: 'error', message: 'Failed to load addresses' });
+      setTimeout(() => setShowToast(null), 2000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) fetchAddresses();
+  }, [isOpen]);
 
   const resetForm = () => {
     setFormData({
@@ -153,7 +178,6 @@ export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
 
   const handleAddNew = () => {
     resetForm();
-    setFormData((p) => ({ ...p, fullName: 'Ankit Shah', phone: '+91 98765 43210', email: 'ankit@trustopay.com' }));
     setView('form');
   };
 
@@ -164,17 +188,27 @@ export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
     setView('form');
   };
 
-  const handleDelete = (id: string) => {
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
-    setShowToast({ type: 'success', message: 'Address deleted' });
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/addresses/${id}`);
+      setAddresses((prev) => prev.filter((a) => a.id !== id));
+      setShowToast({ type: 'success', message: 'Address deleted' });
+    } catch {
+      setShowToast({ type: 'error', message: 'Failed to delete address' });
+    }
     setTimeout(() => setShowToast(null), 2000);
   };
 
-  const handleSetDefault = (id: string) => {
-    setAddresses((prev) =>
-      prev.map((a) => ({ ...a, isDefault: a.id === id }))
-    );
-    setShowToast({ type: 'success', message: 'Default address updated' });
+  const handleSetDefault = async (id: string) => {
+    try {
+      await api.patch(`/addresses/${id}`, { is_default: true });
+      setAddresses((prev) =>
+        prev.map((a) => ({ ...a, isDefault: a.id === id }))
+      );
+      setShowToast({ type: 'success', message: 'Default address updated' });
+    } catch {
+      setShowToast({ type: 'error', message: 'Failed to set default' });
+    }
     setTimeout(() => setShowToast(null), 2000);
   };
 
@@ -186,50 +220,61 @@ export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
     if (!formData.street?.trim()) newErrors.street = 'Street/Area required';
     if (!formData.city?.trim()) newErrors.city = 'City required';
     if (!formData.state?.trim()) newErrors.state = 'State required';
-    if (!formData.pincode?.trim()) newErrors.pincode = 'PIN required';
-    else if (!/^\d{6}$/.test(formData.pincode)) newErrors.pincode = 'Invalid PIN';
+    const pincode = formData.pincode?.replace(/\D/g, '') ?? '';
+    if (!pincode) newErrors.pincode = 'PIN required';
+    else if (pincode.length !== 6) newErrors.pincode = 'PIN must be 6 digits';
     if (formData.gstin && formData.gstin.length !== 15) newErrors.gstin = 'GSTIN must be 15 chars';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) {
       setShowToast({ type: 'error', message: 'Please fix errors' });
       setTimeout(() => setShowToast(null), 2000);
       return;
     }
     setIsSaving(true);
-    setTimeout(() => {
-      const newAddress: Address = {
-        ...formData,
-        id: editingId || Date.now().toString(),
-        isDefault: formData.isDefault ?? addresses.length === 0,
-        building: formData.building || '',
-        street: formData.street || '',
-        city: formData.city || '',
-        state: formData.state || '',
-        pincode: formData.pincode || '',
-        country: formData.country || 'India',
-        businessType: formData.businessType || 'individual',
-      } as Address;
-
-      setAddresses((prev) => {
-        const withDefaultUnset = newAddress.isDefault
-          ? prev.map((a) => ({ ...a, isDefault: false }))
-          : prev;
-        if (editingId) {
-          return withDefaultUnset.map((a) => (a.id === editingId ? newAddress : a));
-        }
-        return [...withDefaultUnset, newAddress];
-      });
-      setIsSaving(false);
+    const isDefault = formData.isDefault ?? addresses.length === 0;
+    const payload = {
+      type: formData.type || 'home',
+      business_type: formData.businessType || 'individual',
+      is_default: isDefault,
+      full_name: formData.fullName?.trim() || '',
+      professional_title: formData.professionalTitle?.trim() || undefined,
+      phone: formData.phone?.trim() || '',
+      email: formData.email?.trim() || undefined,
+      website: formData.website?.trim() || undefined,
+      building: formData.building?.trim() || '',
+      street: formData.street?.trim() || '',
+      city: formData.city?.trim() || '',
+      state: formData.state?.trim() || '',
+      pincode: formData.pincode?.trim() || '',
+      country: formData.country?.trim() || 'India',
+      gstin: formData.gstin?.trim() || undefined,
+      pan: formData.pan?.trim() || undefined,
+      cin: formData.cin?.trim() || undefined,
+    };
+    try {
+      if (editingId) {
+        const { data } = await api.patch<AddressRow>(`/addresses/${editingId}`, payload);
+        setAddresses((prev) => prev.map((a) => (a.id === editingId ? mapAddress(data) : a)));
+      } else {
+        const { data } = await api.post<AddressRow>('/addresses', payload);
+        setAddresses((prev) => (isDefault ? [mapAddress(data), ...prev.map((a) => ({ ...a, isDefault: false }))] : [...prev, mapAddress(data)]));
+      }
       setShowToast({ type: 'success', message: 'Address saved successfully!' });
       setTimeout(() => {
         setShowToast(null);
         setView('list');
       }, 1500);
-    }, 1000);
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to save address';
+      setShowToast({ type: 'error', message: msg });
+      setTimeout(() => setShowToast(null), 2000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUseLocation = () => {
@@ -290,7 +335,11 @@ export function MyAddressesPage({ isOpen, onClose }: MyAddressesPageProps) {
           contentContainerStyle={[styles.scrollContent, view === 'form' && styles.formScroll]}
         >
           {view === 'list' ? (
-            addresses.length === 0 ? (
+            isLoading ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptySub}>Loading...</Text>
+              </View>
+            ) : addresses.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
                   <Ionicons name="location-outline" size={32} color={colors.purple} />
