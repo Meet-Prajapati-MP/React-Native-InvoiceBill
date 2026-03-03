@@ -8,6 +8,7 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -448,8 +449,10 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
         showsVerticalScrollIndicator={false}
       >
         {mainTab === 'sent' && !isFiltered && filteredSent.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No sent invoices found</Text>
+          <View style={styles.emptyWrap}>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyTitle}>No Invoices Yet</Text>
+            <Text style={styles.emptySub}>Tap New to create your first invoice</Text>
           </View>
         )}
         {mainTab === 'sent' &&
@@ -464,8 +467,10 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
           ))}
 
         {mainTab === 'received' && !isFiltered && filteredReceived.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No received invoices found</Text>
+          <View style={styles.emptyWrap}>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyTitle}>No Invoices Yet</Text>
+            <Text style={styles.emptySub}>Tap New to create your first invoice</Text>
           </View>
         )}
         {mainTab === 'received' &&
@@ -480,16 +485,16 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
           ))}
 
         {mainTab === 'recurring' && !isFiltered && filteredRecurringList.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No recurring invoices found</Text>
+          <View style={styles.emptyWrap}>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyTitle}>No Recurring Invoices Yet</Text>
+            <Text style={styles.emptySub}>Create recurring invoices to see them here</Text>
           </View>
         )}
         {mainTab === 'sent' && isFiltered && filteredSent.length === 0 && (
           <View style={styles.emptyFiltered}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={32} color={colors.gray400} />
-            </View>
-            <Text style={styles.emptyTitle}>No invoices found</Text>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyFilteredTitle}>No invoices found</Text>
             <Text style={styles.emptySubtitle}>
               Try adjusting your search or filters to find what you're looking for.
             </Text>
@@ -519,10 +524,8 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
         )}
         {mainTab === 'received' && isFiltered && filteredReceived.length === 0 && (
           <View style={styles.emptyFiltered}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={32} color={colors.gray400} />
-            </View>
-            <Text style={styles.emptyTitle}>No invoices found</Text>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyFilteredTitle}>No invoices found</Text>
             <Text style={styles.emptySubtitle}>
               Try adjusting your search or filters to find what you're looking for.
             </Text>
@@ -542,10 +545,8 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
         )}
         {mainTab === 'recurring' && isFiltered && filteredRecurringList.length === 0 && (
           <View style={styles.emptyFiltered}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="document-text-outline" size={32} color={colors.gray400} />
-            </View>
-            <Text style={styles.emptyTitle}>No invoices found</Text>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyFilteredTitle}>No invoices found</Text>
             <Text style={styles.emptySubtitle}>
               Try adjusting your search or filters to find what you're looking for.
             </Text>
@@ -1074,6 +1075,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray300,
     marginHorizontal: 8,
   },
+  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
+  emptyImage: { width: 220, height: 220, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: 8 },
+  emptySub: { fontSize: 15, color: colors.gray500 },
   emptyState: {
     paddingVertical: 48,
     alignItems: 'center',
@@ -1081,6 +1086,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: colors.gray500,
+  },
+  emptyFilteredTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.navy,
+    marginBottom: 4,
   },
   emptyFiltered: {
     paddingVertical: 48,

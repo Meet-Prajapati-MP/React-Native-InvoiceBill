@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
-import { formatINR } from '../lib/utils';
+import { AlertDialog } from './ui/AlertDialog';
+import { useBalance } from '../context/BalanceContext';
+import { formatINR, formatAmountDisplay, parseAmountInput } from '../lib/utils';
 import { colors } from '../theme/colors';
 
 interface WithdrawProps {
@@ -20,41 +22,41 @@ interface WithdrawProps {
   onClose: () => void;
 }
 
-const BALANCE = 124500;
-
 export function Withdraw({ isOpen, onClose }: WithdrawProps) {
+  const { balance, deductBalance } = useBalance();
   const [amount, setAmount] = useState('0');
   const [success, setSuccess] = useState(false);
 
   const handleAmountChange = (text: string) => {
-    if (!text) {
-      setAmount('0');
-      return;
-    }
-    if (amount === '0' && text.length === 2 && text[0] === '0') {
-      setAmount(text[1]);
-    } else {
-      setAmount(text);
-    }
+    setAmount(formatAmountDisplay(text));
   };
 
+  const [insufficientBalance, setInsufficientBalance] = useState(false);
+
   const handleWithdraw = () => {
+    const amountNum = parseAmountInput(amount);
+    if (amountNum > balance) {
+      setInsufficientBalance(true);
+      return;
+    }
+    setInsufficientBalance(false);
+    deductBalance(amountNum);
     setSuccess(true);
     setTimeout(() => {
       setSuccess(false);
-      setAmount('0');
+      setAmount(formatAmountDisplay('0'));
       onClose();
     }, 2000);
   };
 
   const handleClose = () => {
     setSuccess(false);
-    setAmount('0');
+    setAmount(formatAmountDisplay('0'));
     onClose();
   };
 
-  const amountNum = Number(amount || '0');
-  const canWithdraw = amountNum > 0 && amountNum <= BALANCE;
+  const amountNum = parseAmountInput(amount);
+  const canWithdraw = amountNum > 0 && amountNum <= balance;
 
   return (
     <Modal
@@ -96,7 +98,7 @@ export function Withdraw({ isOpen, onClose }: WithdrawProps) {
               >
                 <View style={styles.balanceCard}>
                   <Text style={styles.balanceLabel}>Available Balance</Text>
-                  <Text style={styles.balanceAmount}>{formatINR(BALANCE)}</Text>
+                  <Text style={styles.balanceAmount}>{formatINR(balance)}</Text>
                 </View>
 
                 <View style={styles.amountSection}>
@@ -129,7 +131,7 @@ export function Withdraw({ isOpen, onClose }: WithdrawProps) {
 
                 <Button
                   onPress={handleWithdraw}
-                  disabled={!canWithdraw}
+                  disabled={amountNum <= 0}
                   style={styles.withdrawBtn}
                   size="lg"
                 >
@@ -141,6 +143,13 @@ export function Withdraw({ isOpen, onClose }: WithdrawProps) {
             </>
           )}
         </View>
+
+        <AlertDialog
+          visible={insufficientBalance}
+          title="Not Enough Balance"
+          message={`You have ${formatINR(balance)} available. Please enter an amount within your balance.`}
+          onOK={() => setInsufficientBalance(false)}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -219,7 +228,8 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     minWidth: 72,
-    width: 140,
+    flex: 1,
+    maxWidth: 260,
     textAlign: 'center',
     ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },

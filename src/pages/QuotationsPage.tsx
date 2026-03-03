@@ -8,6 +8,7 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatINR } from '../lib/utils';
@@ -171,8 +172,10 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
             <Text style={[styles.emptyText, { marginTop: 12 }]}>Loading quotations...</Text>
           </View>
         ) : filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No quotations found</Text>
+          <View style={styles.emptyWrap}>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyTitle}>No Quotations Yet</Text>
+            <Text style={styles.emptySub}>Tap New to create your first quotation</Text>
           </View>
         ) : (
           filtered.map((q, i) => {
@@ -364,4 +367,8 @@ const styles = StyleSheet.create({
 
   emptyState: { paddingVertical: 48, alignItems: 'center' },
   emptyText: { fontSize: 15, color: colors.gray500 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
+  emptyImage: { width: 220, height: 220, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: 8 },
+  emptySub: { fontSize: 15, color: colors.gray500 },
 });

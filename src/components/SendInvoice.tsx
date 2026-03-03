@@ -9,7 +9,6 @@ import {
   TextInput,
   Switch,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +17,7 @@ import { Input } from './ui/Input';
 import { DatePickerInput, formatDateForDisplay } from './ui/DatePickerInput';
 import { Card } from './ui/Card';
 import { CustomersPage } from '../pages/CustomersPage';
+import { AlertDialog } from './ui/AlertDialog';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
@@ -79,6 +79,7 @@ export function SendInvoice({
   const [notifyBeforeSending, setNotifyBeforeSending] = useState(true);
   const [notifyDaysBefore, setNotifyDaysBefore] = useState('3');
   const [isSending, setIsSending] = useState(false);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
 
   const addItem = () => {
     setItems([...items, { id: Date.now(), name: '', qty: 1, rate: 0 }]);
@@ -105,12 +106,12 @@ export function SendInvoice({
 
   const handleSendInvoice = async () => {
     if (!selectedCustomer) {
-      Alert.alert('Error', 'Please select a customer.');
+      setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
       return;
     }
     const validItems = items.filter((i) => i.name?.trim());
     if (validItems.length === 0) {
-      Alert.alert('Error', 'Please add at least one item with a name.');
+      setAlertDialog({ title: 'Error', message: 'Please add at least one item with a name.' });
       return;
     }
     const payload = {
@@ -133,7 +134,7 @@ export function SendInvoice({
       onSuccess?.();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Failed to create invoice.';
-      Alert.alert('Error', msg);
+      setAlertDialog({ title: 'Error', message: msg });
     } finally {
       setIsSending(false);
     }
@@ -141,7 +142,7 @@ export function SendInvoice({
 
   const handleFinalSend = () => {
     if (paymentType === 'recurring') {
-      Alert.alert('Coming Soon', 'Recurring invoices will be available soon.');
+      setAlertDialog({ title: 'Coming Soon', message: 'Recurring invoices will be available soon.' });
       return;
     }
     handleSendInvoice();
@@ -206,6 +207,7 @@ export function SendInvoice({
   if (!isOpen) return null;
 
   return (
+    <>
     <Modal visible={isOpen} animationType="slide">
       <View style={styles.container}>
         <View style={styles.header}>
@@ -865,6 +867,14 @@ export function SendInvoice({
         )}
       </View>
     </Modal>
+
+    <AlertDialog
+      visible={!!alertDialog}
+      title={alertDialog?.title ?? ''}
+      message={alertDialog?.message ?? ''}
+      onOK={() => setAlertDialog(null)}
+    />
+    </>
   );
 }
 

@@ -81,7 +81,7 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPasswor
         <AnimatedSlideIn delay={80}>
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
+            <Image source={require('../../assets/app-icon.png')} style={styles.logoImage} resizeMode="contain" />
           </View>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to continue to Trustopay</Text>

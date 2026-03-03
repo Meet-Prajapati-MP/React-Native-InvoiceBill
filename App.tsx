@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, Text } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ProfileProvider } from './src/context/ProfileContext';
+import { BalanceProvider } from './src/context/BalanceContext';
 import { BottomNav } from './src/components/BottomNav';
 import { OnboardingScreen } from './src/components/OnboardingScreen';
 import { HomePage } from './src/pages/HomePage';
@@ -40,15 +43,19 @@ import { HelpCentrePage } from './src/pages/HelpCentrePage';
 import { MessageCentrePage } from './src/pages/MessageCentrePage';
 import { VerificationCenterPage } from './src/pages/VerificationCenterPage';
 import { PaymentWebView } from './src/components/PaymentWebView';
+import { ConfirmDialog } from './src/components/ui/ConfirmDialog';
 import { colors } from './src/theme/colors';
 import { SplashScreen } from './src/components/SplashScreen';
 import { api } from './src/services/api';
 
 type Tab = 'home' | 'invoices' | 'quotes' | 'customers' | 'menu';
 
+const ONBOARDING_SEEN_KEY = 'ONBOARDING_SEEN';
+
 function AppContent() {
   const { isAuthenticated, logout, isLoading, setAuthFromSession } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSignIn, setShowSignIn] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
@@ -89,12 +96,36 @@ function AppContent() {
     const timer = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(timer);
   }, []);
+
+  const markOnboardingSeen = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, 'true');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || isAuthenticated) return;
+    let cancelled = false;
+    AsyncStorage.getItem(ONBOARDING_SEEN_KEY).then((val) => {
+      if (cancelled) return;
+      const seen = val === 'true';
+      setHasCheckedOnboarding(true);
+      if (seen) {
+        setShowOnboarding(false);
+        setShowSignIn(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [isLoading, isAuthenticated]);
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleNavigate = (action: string) => {
     if (action === 'invoices') setActiveTab('invoices');
@@ -107,6 +138,10 @@ function AppContent() {
   };
 
   if (showSplash || isLoading) {
+    return <SplashScreen />;
+  }
+
+  if (!isAuthenticated && !hasCheckedOnboarding) {
     return <SplashScreen />;
   }
 
@@ -245,9 +280,19 @@ function AppContent() {
         <GestureHandlerRootView style={styles.root}>
           <SafeAreaProvider>
             <OnboardingScreen
-              onComplete={() => setShowOnboarding(false)}
-              onSignIn={() => setShowSignIn(true)}
-              onCreateAccount={() => setShowCreateAccount(true)}
+              onComplete={() => {
+                markOnboardingSeen();
+                setShowOnboarding(false);
+                setShowCreateAccount(true);
+              }}
+              onSignIn={() => {
+                markOnboardingSeen();
+                setShowSignIn(true);
+              }}
+              onCreateAccount={() => {
+                markOnboardingSeen();
+                setShowCreateAccount(true);
+              }}
             />
             <StatusBar style="light" />
           </SafeAreaProvider>
@@ -267,6 +312,8 @@ function AppContent() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
+      <ProfileProvider>
+      <BalanceProvider>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {activeTab === 'home' && (
@@ -321,10 +368,7 @@ function AppContent() {
               onOpenMessageCentre={() => setShowMessageCentre(true)}
               onOpenVerificationCenter={() => setShowVerificationCenter(true)}
               isAuthenticated={isAuthenticated}
-              onLogOut={() => {
-                logout();
-                setShowSignIn(true);
-              }}
+              onLogOut={() => setShowLogoutConfirm(true)}
               onSignIn={() => setShowSignIn(true)}
             />
           )}
@@ -566,7 +610,24 @@ function AppContent() {
       <MessageCentrePage isOpen={showMessageCentre} onClose={() => setShowMessageCentre(false)} />
       <VerificationCenterPage isOpen={showVerificationCenter} onClose={() => setShowVerificationCenter(false)} />
 
+      <ConfirmDialog
+        visible={showLogoutConfirm}
+        title="Logout"
+        message="Are you sure you want to logout?"
+        confirmLabel="Logout"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={async () => {
+          setShowLogoutConfirm(false);
+          await logout();
+          setShowSignIn(true);
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
+
       <StatusBar style="dark" />
+      </BalanceProvider>
+      </ProfileProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

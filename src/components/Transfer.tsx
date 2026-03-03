@@ -12,7 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { formatINR } from '../lib/utils';
+import { AlertDialog } from './ui/AlertDialog';
+import { useBalance } from '../context/BalanceContext';
+import { formatINR, formatAmountDisplay, parseAmountInput } from '../lib/utils';
 import { colors } from '../theme/colors';
 
 interface Recipient {
@@ -29,27 +31,28 @@ interface TransferProps {
 }
 
 export function Transfer({ isOpen, onClose, recipient }: TransferProps) {
+  const { balance, deductBalance } = useBalance();
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState('0');
   const [note, setNote] = useState('');
+  const [insufficientBalance, setInsufficientBalance] = useState(false);
 
   const handleAmountChange = (text: string) => {
-    if (!text) {
-      setAmount('0');
-      return;
-    }
-    if (amount === '0' && text.length === 2 && text[0] === '0') {
-      setAmount(text[1]);
-    } else {
-      setAmount(text);
-    }
+    setAmount(formatAmountDisplay(text));
   };
 
   const handlePay = () => {
+    const amountNum = parseAmountInput(amount);
+    if (amountNum > balance) {
+      setInsufficientBalance(true);
+      return;
+    }
+    setInsufficientBalance(false);
+    deductBalance(amountNum);
     setStep(3);
     setTimeout(() => {
       setStep(1);
-      setAmount('0');
+      setAmount(formatAmountDisplay('0'));
       setNote('');
       onClose();
     }, 2000);
@@ -57,7 +60,7 @@ export function Transfer({ isOpen, onClose, recipient }: TransferProps) {
 
   const handleClose = () => {
     setStep(1);
-    setAmount('0');
+    setAmount(formatAmountDisplay('0'));
     setNote('');
     onClose();
   };
@@ -81,7 +84,7 @@ export function Transfer({ isOpen, onClose, recipient }: TransferProps) {
               </View>
               <Text style={styles.successTitle}>Payment Successful!</Text>
               <Text style={styles.successSubtitle}>
-                {formatINR(Number(amount) || 0)} sent to{' '}
+                {formatINR(parseAmountInput(amount))} sent to{' '}
                 {recipient?.name || 'Recipient'}
               </Text>
               <Button onPress={handleClose} style={styles.doneBtn}>
@@ -126,6 +129,7 @@ export function Transfer({ isOpen, onClose, recipient }: TransferProps) {
 
                 <View style={styles.amountSection}>
                   <Text style={styles.amountLabel}>Enter Amount</Text>
+                  <Text style={styles.balanceHint}>Available: {formatINR(balance)}</Text>
                   <View style={styles.amountRow}>
                     <Text style={styles.currencySymbol}>₹</Text>
                     <TextInput
@@ -148,18 +152,25 @@ export function Transfer({ isOpen, onClose, recipient }: TransferProps) {
 
                 <Button
                   onPress={handlePay}
-                  disabled={Number(amount || '0') === 0}
+                  disabled={parseAmountInput(amount) === 0}
                   style={styles.payBtn}
                   size="lg"
                 >
                   <Text style={styles.payBtnText}>
-                    Pay {amount ? formatINR(Number(amount) || 0) : ''}
+                    Pay {amount ? formatINR(parseAmountInput(amount)) : ''}
                   </Text>
                 </Button>
               </View>
             </>
           )}
         </View>
+
+        <AlertDialog
+          visible={insufficientBalance}
+          title="Not Enough Balance"
+          message={`You have ${formatINR(balance)} available. Please enter an amount within your balance.`}
+          onOK={() => setInsufficientBalance(false)}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -192,6 +203,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
+  },
+  balanceHint: {
+    fontSize: 12,
+    color: colors.gray500,
+    marginBottom: 8,
   },
   recipientCard: {
     flexDirection: 'row',
@@ -256,7 +272,8 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     minWidth: 72,
-    width: 140,
+    flex: 1,
+    maxWidth: 260,
     textAlign: 'center',
     ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },

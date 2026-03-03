@@ -10,11 +10,17 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://invoice-back-production-5762.up.railway.app"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://invoice-back-production-5762.up.railway.app"
+      },
       "android": {
         "buildType": "apk"
       }

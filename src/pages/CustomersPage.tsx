@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Contacts from 'expo-contacts';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { AlertDialog } from '../components/ui/AlertDialog';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
 import { AnimatedSection } from '../components/AnimatedSection';
@@ -27,19 +30,6 @@ function toCustomer(raw: { id: string; name: string; phone?: string; email?: str
     color: raw.color || 'blue',
   };
 }
-
-/** Dummy customers for review when API returns empty */
-const DUMMY_CUSTOMERS: Customer[] = [
-  { id: 'dc1', name: 'Design Hub', phone: '+91 98765 43210', email: 'accounts@designhub.in', initials: 'DH', color: 'purple' },
-  { id: 'dc2', name: 'Tech Solutions Ltd', phone: '+91 91234 56789', email: 'billing@techsolutions.in', initials: 'TS', color: 'blue' },
-  { id: 'dc3', name: 'Creative Studio', phone: '+91 87654 32109', email: 'hello@creativestudio.co', initials: 'CS', color: 'green' },
-  { id: 'dc4', name: 'Global Services', phone: '+91 76543 21098', email: 'accounts@globalservices.com', initials: 'GS', color: 'orange' },
-  { id: 'dc5', name: 'Alpha Corp', phone: '+91 65432 10987', email: 'finance@alphacorp.in', initials: 'AC', color: 'teal' },
-  { id: 'dc6', name: 'Beta Systems', phone: '+91 54321 09876', email: 'billing@betasystems.co', initials: 'BS', color: 'indigo' },
-  { id: 'dc7', name: 'Manish Gupta', phone: '+91 98765 11111', email: 'manish@example.com', initials: 'MG', color: 'blue' },
-  { id: 'dc8', name: 'Priya Sharma', phone: '+91 98765 22222', email: 'priya@example.com', initials: 'PS', color: 'pink' },
-  { id: 'dc9', name: 'Rahul Verma', phone: '+91 98765 33333', email: 'rahul@example.com', initials: 'RV', color: 'green' },
-];
 
 const colorMap: Record<string, { bg: string; text: string }> = {
   blue: { bg: colors.blue100, text: colors.blue600 },
@@ -71,6 +61,55 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
   const [newCustomerEmail, setNewCustomerEmail] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isPickingContact, setIsPickingContact] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+
+  const handleDeleteCustomer = useCallback((customer: Customer) => {
+    setDeleteConfirm(customer);
+  }, []);
+
+  const doDeleteCustomer = useCallback(async () => {
+    const customer = deleteConfirm;
+    if (!customer) return;
+    setDeletingId(customer.id);
+    setDeleteConfirm(null);
+    try {
+      await api.delete(`/customers/${customer.id}`);
+      setCustomers(prev => prev.filter(c => c.id !== customer.id));
+    } catch {
+      setAlertDialog({ title: 'Error', message: 'Failed to delete customer. Please try again.' });
+    } finally {
+      setDeletingId(null);
+    }
+  }, [deleteConfirm]);
+
+  const handlePickFromContacts = useCallback(async () => {
+    try {
+      setIsPickingContact(true);
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setAlertDialog({
+          title: 'Contacts permission needed',
+          message: 'Allow Trustopay to access your contacts to add customers from your contact list.',
+        });
+        return;
+      }
+      const contact = await Contacts.presentContactPickerAsync();
+      if (!contact) return;
+      const name = contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ') || '';
+      const phone = contact.phoneNumbers?.[0]?.number?.replace(/\s/g, '') || '';
+      const email = contact.emails?.[0]?.email || '';
+      setNewCustomerName(name || 'Customer');
+      setNewCustomerPhone(phone);
+      setNewCustomerEmail(email);
+    } catch {
+      /* user cancelled or error */
+    } finally {
+      setIsPickingContact(false);
+    }
+  }, []);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -78,9 +117,9 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
       setError(null);
       const { data } = await api.get<unknown[]>('/customers');
       const list = Array.isArray(data) ? data.map(toCustomer) : [];
-      setCustomers(list.length > 0 ? list : DUMMY_CUSTOMERS);
+      setCustomers(list);
     } catch {
-      setCustomers(DUMMY_CUSTOMERS);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }
@@ -105,16 +144,30 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
   const sortedLetters = Object.keys(grouped).sort();
 
   const handleAddCustomer = async () => {
-    if (!newCustomerName.trim() || !newCustomerPhone.trim()) return;
+    const name = newCustomerName.trim();
+    const phone = newCustomerPhone.trim();
+    if (!name) {
+      setError('Please enter customer name');
+      return;
+    }
+    if (!phone) {
+      setError('Please enter phone number');
+      return;
+    }
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
     setIsAdding(true);
     setError(null);
     try {
-      const initials = newCustomerName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
       const colorsList = ['blue', 'green', 'purple', 'orange'];
       const color = colorsList[Math.floor(Math.random() * colorsList.length)];
       const { data } = await api.post<{ id: string; name: string; phone?: string; email?: string; initials?: string; color?: string }>('/customers', {
-        name: newCustomerName.trim(),
-        phone: newCustomerPhone.trim(),
+        name,
+        phone,
         email: newCustomerEmail.trim() || undefined,
         initials,
         color,
@@ -128,8 +181,20 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
         setNewCustomerPhone('');
         setNewCustomerEmail('');
       }, 1500);
-    } catch {
-      setError('Failed to add customer');
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
+      let msg = 'Failed to add customer';
+      if (err?.response?.data?.message) {
+        const m = err.response.data.message;
+        msg = Array.isArray(m) ? m[0] : m;
+      } else if (err?.message) {
+        if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
+          msg = 'Cannot reach server. Check your internet connection.';
+        } else {
+          msg = err.message;
+        }
+      }
+      setError(msg);
     } finally {
       setIsAdding(false);
     }
@@ -182,8 +247,10 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
                 <TouchableOpacity
                   key={customer.id}
                   onPress={() => onSelectCustomer(customer)}
+                  onLongPress={() => handleDeleteCustomer(customer)}
                   style={styles.customerRow}
                   activeOpacity={0.7}
+                  disabled={deletingId === customer.id}
                 >
                   <View style={[styles.avatar, { backgroundColor: c.bg }]}>
                     <Text style={[styles.avatarText, { color: c.text }]}>{customer.initials}</Text>
@@ -199,8 +266,12 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
           </View>
           </AnimatedSection>
         ))}
-        {filtered.length === 0 && (
-          <Text style={styles.empty}>No customers found</Text>
+        {!loading && filtered.length === 0 && (
+          <View style={styles.emptyWrap}>
+            <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+            <Text style={styles.emptyTitle}>No Customers Yet</Text>
+            <Text style={styles.emptySub}>Tap + to add your first customer</Text>
+          </View>
         )}
       </ScrollView>
       <View style={{ height: 100 }} />
@@ -223,6 +294,16 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
             </View>
           ) : (
             <View style={styles.form}>
+              <TouchableOpacity
+                onPress={handlePickFromContacts}
+                disabled={isPickingContact}
+                style={styles.pickFromContactsBtn}
+              >
+                <Ionicons name="people-outline" size={20} color={colors.purple} />
+                <Text style={styles.pickFromContactsText}>
+                  {isPickingContact ? 'Opening contacts...' : 'Add from Contacts app'}
+                </Text>
+              </TouchableOpacity>
               <Input label="Customer Name" placeholder="Enter full name" value={newCustomerName} onChangeText={setNewCustomerName} />
               <Input label="Phone Number" placeholder="+91 98765 43210" value={newCustomerPhone} onChangeText={setNewCustomerPhone} />
               <Input label="Email Address (Optional)" placeholder="name@example.com" value={newCustomerEmail} onChangeText={setNewCustomerEmail} />
@@ -233,6 +314,24 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
           )}
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={!!deleteConfirm}
+        title="Delete Customer"
+        message={deleteConfirm ? `Are you sure you want to delete "${deleteConfirm.name}"? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={doDeleteCustomer}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <AlertDialog
+        visible={!!alertDialog}
+        title={alertDialog?.title ?? ''}
+        message={alertDialog?.message ?? ''}
+        onOK={() => setAlertDialog(null)}
+      />
     </View>
   );
 }
@@ -290,6 +389,10 @@ const styles = StyleSheet.create({
   customerName: { fontSize: 16, fontWeight: '600', color: colors.navy },
   customerPhone: { fontSize: 14, color: colors.gray500 },
   empty: { textAlign: 'center', paddingVertical: 48, color: colors.gray500 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
+  emptyImage: { width: 220, height: 220, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: 8 },
+  emptySub: { fontSize: 15, color: colors.gray500 },
   modal: { flex: 1, backgroundColor: colors.white },
   modalHeader: {
     flexDirection: 'row',
@@ -313,5 +416,18 @@ const styles = StyleSheet.create({
   successTitle: { fontSize: 24, fontWeight: '700', color: colors.navy, marginBottom: 8 },
   successDesc: { fontSize: 16, color: colors.gray500, textAlign: 'center' },
   form: { flex: 1, padding: 20 },
+  pickFromContactsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.purple,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+  },
+  pickFromContactsText: { fontSize: 16, fontWeight: '600', color: colors.purple },
   submitBtn: { marginTop: 24, height: 48 },
 });

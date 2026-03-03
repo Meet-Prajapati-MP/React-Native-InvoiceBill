@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useProfile } from '../context/ProfileContext';
+import { useBalance } from '../context/BalanceContext';
 import {
   View,
   Text,
@@ -43,6 +45,8 @@ interface HomePageProps {
 }
 
 export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction, onOpenScanQR }: HomePageProps) {
+  const { profile } = useProfile();
+  const { balance } = useBalance();
   const [showQROverlay, setShowQROverlay] = useState(false);
   const [copied, setCopied] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
@@ -60,7 +64,7 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.userName}>Ankit Sharma</Text>
+        <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onOpenNotifications} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={20} color={colors.navy} />
@@ -108,7 +112,7 @@ export function HomePage({ onNavigate, onOpenNotifications, onSelectTransaction,
           <Text style={styles.balanceLabel}>Total Balance</Text>
           <View style={styles.balanceRow}>
             <Text style={styles.balanceAmount}>
-              {balanceVisible ? formatINR(12650) : '₹ •••••'}
+              {balanceVisible ? formatINR(balance) : '₹ •••••'}
             </Text>
             <TouchableOpacity
               onPress={() => setBalanceVisible((v) => !v)}

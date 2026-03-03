@@ -27,6 +27,7 @@ interface CreateAccountPageProps {
 export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccountPageProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -36,6 +37,15 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
   const handleCreateAccount = async () => {
     if (!email.trim() || !password) {
       setError('Please enter email and password');
+      return;
+    }
+    if (!phone.trim()) {
+      setError('Please enter your phone number');
+      return;
+    }
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10 || !/^[6-9]\d{9}$/.test(phoneDigits.slice(-10))) {
+      setError('Please enter a valid 10-digit Indian mobile number');
       return;
     }
     if (password.length < 6) {
@@ -49,7 +59,7 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
     setError('');
     setLoading(true);
     try {
-      await register(email.trim(), password, name.trim() || undefined);
+      await register(email.trim(), password, name.trim() || undefined, phone.trim());
       onSuccess();
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
@@ -89,7 +99,7 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
         <AnimatedSlideIn delay={80}>
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
+            <Image source={require('../../assets/app-icon.png')} style={styles.logoImage} resizeMode="contain" />
           </View>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Trustopay to get started</Text>
@@ -110,6 +120,15 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
               placeholder="you@example.com"
               value={email}
               onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Input
+              label="Phone No"
+              placeholder="10-digit mobile number"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
             />
             <Input
               label="Password"

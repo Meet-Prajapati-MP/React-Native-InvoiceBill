@@ -9,7 +9,6 @@ import {
   TextInput,
   Switch,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +17,7 @@ import { Input } from './ui/Input';
 import { DatePickerInput } from './ui/DatePickerInput';
 import { Card } from './ui/Card';
 import { CustomersPage } from '../pages/CustomersPage';
+import { AlertDialog } from './ui/AlertDialog';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
 import { api } from '../services/api';
@@ -39,6 +39,7 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
 
   const [quoteNumber, setQuoteNumber] = useState('QUO-007');
   const [quoteDate, setQuoteDate] = useState(toISODate(new Date()));
@@ -93,12 +94,12 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
 
   const saveQuotation = async (status: 'draft' | 'sent') => {
     if (!selectedCustomer) {
-      Alert.alert('Error', 'Please select a customer.');
+      setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
       return;
     }
     const validItems = items.filter((i) => i.name?.trim());
     if (validItems.length === 0) {
-      Alert.alert('Error', 'Please add at least one item with a name.');
+      setAlertDialog({ title: 'Error', message: 'Please add at least one item with a name.' });
       return;
     }
     const payload = {
@@ -124,7 +125,7 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
       onClose();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Failed to save quotation.';
-      Alert.alert('Error', msg);
+      setAlertDialog({ title: 'Error', message: msg });
     } finally {
       setIsSaving(false);
     }
@@ -138,6 +139,7 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
   if (!isOpen) return null;
 
   return (
+    <>
     <Modal visible={isOpen} animationType="slide">
       <View style={styles.container}>
         {/* Header */}
@@ -471,6 +473,14 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
         )}
       </View>
     </Modal>
+
+    <AlertDialog
+      visible={!!alertDialog}
+      title={alertDialog?.title ?? ''}
+      message={alertDialog?.message ?? ''}
+      onOK={() => setAlertDialog(null)}
+    />
+    </>
   );
 }
 

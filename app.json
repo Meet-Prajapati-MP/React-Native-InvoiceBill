@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "InvoiceBill",
+    "name": "Trustopay",
     "slug": "invoicebill-trustopay",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,11 +8,12 @@
       "enabled": false,
       "checkAutomatically": "NEVER"
     },
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "resizeMode": "cover",
+      "image": "./assets/app-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#2C264D"
     },
     "ios": {
@@ -20,7 +21,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -28,7 +29,7 @@
       "package": "com.meetprajapati.invoicebilltrustopay"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/app-icon.png"
     },
     "plugins": [
       [
@@ -56,12 +57,19 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Trustopay to access your contacts to quickly add customers."
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "a7ab8a70-3204-4ef7-aafa-ed386f5de5df"
+        "projectId": "2138ff42-eed9-4f1c-9b6b-510a749750f7"
       }
-    }
+    },
+    "owner": "meetmontu"
   }
 }

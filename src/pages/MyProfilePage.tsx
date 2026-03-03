@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,13 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
+import { AlertDialog } from '../components/ui/AlertDialog';
+import { useProfile, getInitials } from '../context/ProfileContext';
+import { api } from '../services/api';
 import { colors } from '../theme/colors';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
@@ -19,11 +23,59 @@ interface MyProfilePageProps {
   onClose: () => void;
 }
 
+function formatPhoneForDisplay(phone: string | null): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  return phone;
+}
+
 export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
-  const [fullName, setFullName] = useState('Arjun Mehta');
-  const [mobile, setMobile] = useState('+91 98765 43210');
-  const [email, setEmail] = useState('arjun.mehta@example.com');
+  const { profile, refreshProfile } = useProfile();
+  const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    if (isOpen && profile) {
+      setFullName(profile.full_name || '');
+      setMobile(formatPhoneForDisplay(profile.phone));
+      setEmail(profile.email || '');
+      setPinCode(profile.pincode || '');
+    }
+  }, [isOpen, profile]);
+
+  const handleSave = async () => {
+    const phoneDigits = mobile.replace(/\D/g, '');
+    if (!fullName.trim()) {
+      setAlertDialog({ title: 'Error', message: 'Please enter your full name.' });
+      return;
+    }
+    if (phoneDigits.length < 10) {
+      setAlertDialog({ title: 'Error', message: 'Please enter a valid 10-digit phone number.' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.patch('/profiles/me', {
+        full_name: fullName.trim(),
+        phone: phoneDigits.slice(-10),
+        email: email.trim() || undefined,
+        pincode: pinCode.trim() || undefined,
+      });
+      await refreshProfile();
+      onClose();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      const msg = err?.response?.data?.message || err?.message || 'Failed to save profile.';
+      setAlertDialog({ title: 'Error', message: msg });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -43,7 +95,7 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>AM</Text>
+                <Text style={styles.avatarText}>{getInitials(fullName || profile?.full_name)}</Text>
               </View>
               <TouchableOpacity style={styles.cameraBtn}>
                 <Ionicons name="camera" size={16} color={colors.white} />
@@ -120,11 +172,22 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
           </View>
           </AnimatedSlideIn>
 
-          <Button variant="outline" onPress={onClose} style={styles.doneBtn}>
-            Done
+          <Button onPress={handleSave} style={styles.saveBtn} disabled={saving}>
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              'Save'
+            )}
           </Button>
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        <AlertDialog
+          visible={!!alertDialog}
+          title={alertDialog?.title ?? ''}
+          message={alertDialog?.message ?? ''}
+          onOK={() => setAlertDialog(null)}
+        />
       </View>
     </Modal>
   );
@@ -209,6 +272,10 @@ const styles = StyleSheet.create({
   },
   doneBtn: {
     backgroundColor: colors.gray200,
+    height: 48,
+  },
+  saveBtn: {
+    backgroundColor: colors.purple,
     height: 48,
   },
 });

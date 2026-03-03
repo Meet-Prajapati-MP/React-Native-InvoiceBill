@@ -101,7 +101,7 @@ function Slide1() {
       <AnimatedSlideIn delay={100}>
         <View style={styles.slide1Content}>
           <View style={styles.logoBox}>
-            <Image source={require('../../assets/tp-logo.png')} style={styles.logoImage} resizeMode="contain" />
+            <Image source={require('../../assets/app-icon.png')} style={styles.logoImage} resizeMode="contain" />
           </View>
           <Text style={styles.title1}>Trustopay</Text>
           <Text style={styles.subtitle1Light}>Payments Built on Trust</Text>
@@ -162,7 +162,7 @@ function Slide3() {
         <View style={styles.invoiceCard}>
           <View style={styles.invoiceHeader}>
             <View style={styles.invLogo}>
-              <Image source={require('../../assets/tp-logo.png')} style={styles.invLogoImage} resizeMode="contain" />
+              <Image source={require('../../assets/app-icon.png')} style={styles.invLogoImage} resizeMode="contain" />
             </View>
             <View>
               <Text style={styles.invNum}>INV-045</Text>

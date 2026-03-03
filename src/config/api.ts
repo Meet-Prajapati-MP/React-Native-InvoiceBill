@@ -13,7 +13,7 @@ const getDevApiBase = () => {
   return 'http://localhost:3000';
 };
 
-const PROD_URL = envUrl || 'https://YOUR_RAILWAY_APP.up.railway.app';
+const PROD_URL = envUrl || 'https://invoice-back-production-5762.up.railway.app';
 
 export const API_BASE = __DEV__ ? getDevApiBase() : PROD_URL.replace(/\/$/, '');
 

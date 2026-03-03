@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useProfile, getInitials } from '../context/ProfileContext';
 import { colors } from '../theme/colors';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 
@@ -58,6 +59,11 @@ const menuGroups = [
 ];
 
 export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpenBankAccounts, onOpenActivity, onOpenBusinessProfile, onOpenInvoiceSettings, onOpenTermsConditions, onOpenMyAddresses, onOpenSendReminders, onOpenReportsAnalytics, onOpenItemList, onOpenHelpCentre, onOpenMessageCentre, onOpenVerificationCenter, onLogOut, isAuthenticated, onSignIn }: MenuPageProps) {
+  const { profile } = useProfile();
+  const displayName = profile?.full_name || 'User';
+  const displayEmail = profile?.email || '';
+  const displayPhone = profile?.phone ? (profile.phone.length === 10 ? `+91 ${profile.phone.slice(0, 5)} ${profile.phone.slice(5)}` : `+91 ${profile.phone}`) : '';
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AnimatedSlideIn delay={80}>
@@ -67,12 +73,12 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
         activeOpacity={0.7}
       >
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>AM</Text>
+          <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.name}>Arjun Mehta</Text>
-          <Text style={styles.email}>arjun.mehta@example.com</Text>
-          <Text style={styles.phone}>+91 98765 43210</Text>
+          <Text style={styles.name}>{displayName}</Text>
+          <Text style={styles.email}>{displayEmail}</Text>
+          <Text style={styles.phone}>{displayPhone}</Text>
         </View>
         <Ionicons name="chevron-forward" size={22} color={colors.gray400} />
       </TouchableOpacity>

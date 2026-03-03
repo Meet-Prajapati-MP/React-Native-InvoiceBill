@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
-import { formatINR } from '../lib/utils';
+import { useBalance } from '../context/BalanceContext';
+import { formatINR, formatAmountDisplay, parseAmountInput } from '../lib/utils';
 import { colors } from '../theme/colors';
 
 interface AddMoneyProps {
@@ -25,34 +26,31 @@ type Method = 'upi' | 'netbanking';
 const QUICK_AMOUNTS = [500, 1000, 5000];
 
 export function AddMoney({ isOpen, onClose }: AddMoneyProps) {
+  const { addBalance } = useBalance();
   const [amount, setAmount] = useState('0');
   const [method, setMethod] = useState<Method>('upi');
   const [success, setSuccess] = useState(false);
 
   const handleAmountChange = (text: string) => {
-    if (!text) {
-      setAmount('0');
-      return;
-    }
-    if (amount === '0' && text.length === 2 && text[0] === '0') {
-      setAmount(text[1]);
-    } else {
-      setAmount(text);
-    }
+    setAmount(formatAmountDisplay(text));
   };
 
   const handleAdd = () => {
+    const amountNum = parseAmountInput(amount);
+    if (amountNum > 0) {
+      addBalance(amountNum);
+    }
     setSuccess(true);
     setTimeout(() => {
       setSuccess(false);
-      setAmount('0');
+      setAmount(formatAmountDisplay('0'));
       onClose();
     }, 2000);
   };
 
   const handleClose = () => {
     setSuccess(false);
-    setAmount('0');
+    setAmount(formatAmountDisplay('0'));
     onClose();
   };
 
@@ -75,7 +73,7 @@ export function AddMoney({ isOpen, onClose }: AddMoneyProps) {
               </View>
               <Text style={styles.successTitle}>Money Added!</Text>
               <Text style={styles.successSubtitle}>
-                {formatINR(Number(amount) || 0)} has been added to your wallet.
+                {formatINR(parseAmountInput(amount))} has been added to your wallet.
               </Text>
             </View>
           ) : (
@@ -115,16 +113,16 @@ export function AddMoney({ isOpen, onClose }: AddMoneyProps) {
                   {QUICK_AMOUNTS.map((val) => (
                     <TouchableOpacity
                       key={val}
-                      onPress={() => setAmount(val === 0 ? '0' : val.toString())}
+                      onPress={() => setAmount(formatAmountDisplay(val.toString()))}
                       style={[
                         styles.quickBtn,
-                        amount === val.toString() && styles.quickBtnActive,
+                        parseAmountInput(amount) === val && styles.quickBtnActive,
                       ]}
                     >
                       <Text
                         style={[
                           styles.quickBtnText,
-                          amount === val.toString() && styles.quickBtnTextActive,
+                          parseAmountInput(amount) === val && styles.quickBtnTextActive,
                         ]}
                       >
                         + {formatINR(val)}
@@ -191,12 +189,12 @@ export function AddMoney({ isOpen, onClose }: AddMoneyProps) {
 
                 <Button
                   onPress={handleAdd}
-                  disabled={Number(amount || '0') === 0}
+                  disabled={parseAmountInput(amount) === 0}
                   style={styles.addBtn}
                   size="lg"
                 >
                   <Text style={styles.addBtnText}>
-                    Add {amount ? formatINR(Number(amount) || 0) : ''}
+                    Add {amount ? formatINR(parseAmountInput(amount)) : ''}
                   </Text>
                 </Button>
               </ScrollView>
@@ -268,7 +266,8 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     minWidth: 72,
-    width: 140,
+    flex: 1,
+    maxWidth: 260,
     textAlign: 'center',
     ...(Platform.OS === 'android' && { includeFontPadding: false }),
   },

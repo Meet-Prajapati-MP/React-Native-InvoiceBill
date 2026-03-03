@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,11 @@ import {
   ScrollView,
   Platform,
   Share,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
+import { AlertDialog } from './ui/AlertDialog';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
 
@@ -35,10 +35,12 @@ interface TransactionDetailProps {
 }
 
 export function TransactionDetail({ isOpen, onClose, transaction }: TransactionDetailProps) {
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+
   if (!transaction) return null;
 
   const handleCopy = () => {
-    Alert.alert('Copied!', 'UPI Ref. No. copied to clipboard');
+    setAlertDialog({ title: 'Copied!', message: 'UPI Ref. No. copied to clipboard' });
   };
 
   const handleShare = async () => {
@@ -53,10 +55,11 @@ export function TransactionDetail({ isOpen, onClose, transaction }: TransactionD
   };
 
   const handleReportIssue = () => {
-    Alert.alert('Report Issue', 'Redirecting to support...');
+    setAlertDialog({ title: 'Report Issue', message: 'Redirecting to support...' });
   };
 
   return (
+    <>
     <Modal
       visible={isOpen}
       animationType="slide"
@@ -187,6 +190,14 @@ export function TransactionDetail({ isOpen, onClose, transaction }: TransactionD
         </ScrollView>
       </View>
     </Modal>
+
+    <AlertDialog
+      visible={!!alertDialog}
+      title={alertDialog?.title ?? ''}
+      message={alertDialog?.message ?? ''}
+      onOK={() => setAlertDialog(null)}
+    />
+    </>
   );
 }
 

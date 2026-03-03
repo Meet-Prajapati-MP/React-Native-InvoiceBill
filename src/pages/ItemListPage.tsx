@@ -9,8 +9,11 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { AlertDialog } from '../components/ui/AlertDialog';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
@@ -25,16 +28,6 @@ interface Item {
   rate: number;
   description?: string;
 }
-
-/** Dummy items for review when API returns empty */
-const DUMMY_ITEMS: Item[] = [
-  { id: 'di1', name: 'Web Design - Landing Page', rate: 15000, description: 'Responsive landing page design' },
-  { id: 'di2', name: 'Logo Design', rate: 5000, description: 'Brand logo and variations' },
-  { id: 'di3', name: 'Consulting - Hourly', rate: 2500, description: 'Per hour consulting rate' },
-  { id: 'di4', name: 'Mobile App Development', rate: 85000, description: 'Full-stack mobile app' },
-  { id: 'di5', name: 'Content Writing', rate: 1500, description: 'Per 1000 words' },
-  { id: 'di6', name: 'SEO Audit', rate: 8000, description: 'Full website audit' },
-];
 
 interface ItemListPageProps {
   isOpen: boolean;
@@ -51,6 +44,8 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
   const [rate, setRate] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<Item | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -59,9 +54,9 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
       const list = Array.isArray(data)
         ? data.map((i) => ({ ...i, rate: typeof i.rate === 'number' ? i.rate : parseFloat(String(i.rate || 0)) }))
         : [];
-      setItems(list.length > 0 ? list : DUMMY_ITEMS);
+      setItems(list);
     } catch {
-      setItems(DUMMY_ITEMS);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -123,14 +118,19 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteClick = (item: Item) => setDeleteConfirm(item);
+
+  const doDeleteItem = useCallback(async () => {
+    const item = deleteConfirm;
+    if (!item) return;
+    setDeleteConfirm(null);
     try {
-      await api.delete(`/items/${id}`);
-      setItems((prev) => prev.filter((i) => i.id !== id));
+      await api.delete(`/items/${item.id}`);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
     } catch {
-      /* ignore */
+      setAlertDialog({ title: 'Error', message: 'Failed to delete item. Please try again.' });
     }
-  };
+  }, [deleteConfirm]);
 
   if (!isOpen) return null;
 
@@ -150,6 +150,13 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
               <ActivityIndicator size="large" color={colors.purple} />
             </View>
           )}
+          {!loading && items.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
+              <Text style={styles.emptyTitle}>No Items Yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first item</Text>
+            </View>
+          )}
           {!loading && items.map((item, i) => (
             <AnimatedSection key={item.id} index={i} delay={0}>
             <Card style={styles.itemCard}>
@@ -160,7 +167,7 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
                   {item.description ? <Text style={styles.itemDesc}>{item.description}</Text> : null}
                 </View>
                 <TouchableOpacity
-                  onPress={() => handleDelete(item.id)}
+                  onPress={() => handleDeleteClick(item)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   style={styles.deleteBtn}
                 >
@@ -197,6 +204,24 @@ export function ItemListPage({ isOpen, onClose, onBeforeAddItem }: ItemListPageP
 
           <View style={{ height: 24 }} />
         </ScrollView>
+
+        <ConfirmDialog
+          visible={!!deleteConfirm}
+          title="Delete Item"
+          message={deleteConfirm ? `Are you sure you want to delete "${deleteConfirm.name}"? This cannot be undone.` : ''}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          destructive
+          onConfirm={doDeleteItem}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+
+        <AlertDialog
+          visible={!!alertDialog}
+          title={alertDialog?.title ?? ''}
+          message={alertDialog?.message ?? ''}
+          onOK={() => setAlertDialog(null)}
+        />
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -219,6 +244,10 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   loadingWrap: { paddingVertical: 48, alignItems: 'center' },
+  emptyWrap: { alignItems: 'center', paddingVertical: 48 },
+  emptyImage: { width: 220, height: 220, marginBottom: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: 8 },
+  emptySub: { fontSize: 15, color: colors.gray500 },
   itemCard: { marginBottom: 12 },
   itemContent: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   itemText: { flex: 1 },
