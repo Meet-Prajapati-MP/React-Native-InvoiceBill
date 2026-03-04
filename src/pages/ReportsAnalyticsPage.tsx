@@ -22,6 +22,7 @@ interface ReportsAnalyticsPageProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenSendReminders?: () => void;
+  onNavigateToCustomers?: () => void;
 }
 
 const PERIOD_MAP: Record<string, string> = {
@@ -74,7 +75,7 @@ const REPORTS = [
   { key: 'client', label: 'Client Statement', icon: '👤' },
 ];
 
-export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: ReportsAnalyticsPageProps) {
+export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders, onNavigateToCustomers }: ReportsAnalyticsPageProps) {
   const [timeFilter, setTimeFilter] = useState('This Month');
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -354,7 +355,11 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
                 <Text style={styles.clientAmount}>{formatINR(c.amount)}</Text>
               </View>
             ))}
-            <TouchableOpacity style={styles.viewAllBtn}>
+            <TouchableOpacity
+              style={styles.viewAllBtn}
+              onPress={() => onNavigateToCustomers?.()}
+              activeOpacity={0.7}
+            >
               <Text style={styles.viewAllText}>View All Clients</Text>
               <Ionicons name="chevron-forward" size={12} color={colors.purple} />
             </TouchableOpacity>

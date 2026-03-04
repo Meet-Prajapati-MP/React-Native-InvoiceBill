@@ -9,24 +9,29 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
 import { api } from '../services/api';
 
-interface RequestOtpPageProps {
-  onOtpSent: (email: string) => void;
+interface ForgotPasswordPageProps {
+  onSuccess: () => void;
   onBack: () => void;
   initialEmail?: string;
-  mode?: 'forgot-password' | 'login';
 }
 
-export function RequestOtpPage({ onOtpSent, onBack, initialEmail = '', mode = 'forgot-password' }: RequestOtpPageProps) {
+export function ForgotPasswordPage({
+  onSuccess,
+  onBack,
+  initialEmail = '',
+}: ForgotPasswordPageProps) {
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
-  const handleSendOtp = async () => {
+  const handleSendLink = async () => {
     const trimmed = email.trim();
     if (!trimmed) {
       setError('Please enter your email address');
@@ -39,13 +44,13 @@ export function RequestOtpPage({ onOtpSent, onBack, initialEmail = '', mode = 'f
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/send-otp', { email: trimmed });
-      onOtpSent(trimmed);
+      await api.post('/auth/forgot-password', { email: trimmed });
+      setSent(true);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string | string[] } } };
       const msg = err?.response?.data?.message;
       setError(
-        Array.isArray(msg) ? msg[0] : msg || 'Failed to send code. Please try again.',
+        Array.isArray(msg) ? msg[0] : msg || 'Failed to send reset link. Please try again.',
       );
     } finally {
       setLoading(false);
@@ -65,43 +70,49 @@ export function RequestOtpPage({ onOtpSent, onBack, initialEmail = '', mode = 'f
 
       <View style={styles.content}>
         <AnimatedSlideIn delay={80}>
-          <Text style={styles.title}>
-            {mode === 'login' ? 'Sign in with OTP' : 'Forgot password?'}
-          </Text>
+          <Text style={styles.title}>Forgot password?</Text>
           <Text style={styles.subtitle}>
-            {mode === 'login'
-              ? "Enter your email and we'll send you a verification code to sign in."
-              : "Enter your email and we'll send you a verification code to reset your password."}
+            {sent
+              ? 'Check your email for the reset link. Click the link, set your new password, then sign in.'
+              : 'Confirm link first. Enter your email and we\'ll send you a reset link.'}
           </Text>
         </AnimatedSlideIn>
 
-        <AnimatedSlideIn delay={160}>
-          <View style={styles.formCard}>
-            <Input
-              label="Email"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              editable={!loading}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <TouchableOpacity
-              onPress={handleSendOtp}
-              style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={styles.sendBtnText}>
-              {mode === 'login' ? 'Send OTP' : 'Send verification code'}
-            </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </AnimatedSlideIn>
+        {!sent && (
+          <AnimatedSlideIn delay={160}>
+            <View style={styles.formCard}>
+              <Input
+                label="Email"
+                placeholder="you@example.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+              />
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <Button
+                onPress={handleSendLink}
+                disabled={loading}
+                style={styles.sendBtn}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  'Send reset link'
+                )}
+              </Button>
+            </View>
+          </AnimatedSlideIn>
+        )}
+
+        {sent && (
+          <AnimatedSlideIn delay={160}>
+            <Button onPress={onSuccess} variant="outline" style={styles.backToSignIn}>
+              Back to sign in
+            </Button>
+          </AnimatedSlideIn>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -137,6 +148,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.purpleLight,
     marginBottom: 32,
+    lineHeight: 24,
   },
   formCard: {
     backgroundColor: colors.white,
@@ -152,17 +164,9 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     height: 52,
-    backgroundColor: colors.purple,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 8,
   },
-  sendBtnDisabled: {
-    opacity: 0.7,
-  },
-  sendBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.white,
+  backToSignIn: {
+    marginTop: 16,
   },
 });

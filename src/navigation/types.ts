@@ -8,7 +8,6 @@ export type AuthScreen =
   | 'signIn'
   | 'createAccount'
   | 'requestOtp'
-  | 'otpVerification'
   | 'resetPassword';
 
 /** Screens that must be cleared from history after login */
@@ -17,7 +16,6 @@ export const AUTH_SCREENS: AuthScreen[] = [
   'signIn',
   'createAccount',
   'requestOtp',
-  'otpVerification',
   'resetPassword',
 ];
 

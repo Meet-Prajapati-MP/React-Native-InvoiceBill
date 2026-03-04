@@ -23,10 +23,9 @@ interface SignInPageProps {
   onBack: () => void;
   onCreateAccount: () => void;
   onForgotPassword?: (email?: string) => void;
-  onLoginWithOtp?: (email?: string) => void;
 }
 
-export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPassword, onLoginWithOtp }: SignInPageProps) {
+export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPassword }: SignInPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -105,22 +104,16 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPasswor
               secureTextEntry
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {onForgotPassword && (
             <View style={styles.altLinks}>
               <TouchableOpacity
-                onPress={() => onForgotPassword?.(email.trim() || undefined)}
+                onPress={() => onForgotPassword(email.trim() || undefined)}
                 style={styles.forgotLink}
-                disabled={!onForgotPassword}
               >
                 <Text style={styles.forgotText}>Forgot password?</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => onLoginWithOtp?.(email.trim() || undefined)}
-                style={styles.forgotLink}
-                disabled={!onLoginWithOtp}
-              >
-                <Text style={styles.forgotText}>Sign in with OTP</Text>
-              </TouchableOpacity>
             </View>
+            )}
             <Button
               onPress={handleSignIn}
               size="lg"

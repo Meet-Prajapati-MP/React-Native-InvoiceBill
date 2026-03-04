@@ -11,6 +11,7 @@ import { BalanceProvider } from './src/context/BalanceContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 import { InvoiceSettingsProvider } from './src/context/InvoiceSettingsContext';
 import { NotificationPanel } from './src/components/NotificationPanel';
+import { PushRegistration } from './src/components/PushRegistration';
 import { BottomNav } from './src/components/BottomNav';
 import { OnboardingScreen } from './src/components/OnboardingScreen';
 import { HomePage } from './src/pages/HomePage';
@@ -20,9 +21,7 @@ import { MenuPage } from './src/pages/MenuPage';
 import { QuotationsPage } from './src/pages/QuotationsPage';
 import { SignInPage } from './src/pages/SignInPage';
 import { CreateAccountPage } from './src/pages/CreateAccountPage';
-import { OtpVerificationPage } from './src/pages/OtpVerificationPage';
-import { RequestOtpPage } from './src/pages/RequestOtpPage';
-import { ResetPasswordPage } from './src/pages/ResetPasswordPage';
+import { ForgotPasswordPage } from './src/pages/ForgotPasswordPage';
 import { ScanQR } from './src/components/ScanQR';
 import { Transfer } from './src/components/Transfer';
 import { AddMoney } from './src/components/AddMoney';
@@ -65,12 +64,8 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSignIn, setShowSignIn] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
-  const [showRequestOtp, setShowRequestOtp] = useState(false);
-  const [showOtpVerification, setShowOtpVerification] = useState(false);
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [otpFlowMode, setOtpFlowMode] = useState<'forgot-password' | 'login'>('forgot-password');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
   const [showScanQR, setShowScanQR] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showAddMoney, setShowAddMoney] = useState(false);
@@ -254,27 +249,17 @@ function AppContent() {
   }, [overlayState, closeFns]);
 
   const handleAuthBack = useCallback(() => {
-    if (showResetPassword) {
-      setShowResetPassword(false);
-      setShowOtpVerification(true);
-    } else if (showOtpVerification) {
-      setShowOtpVerification(false);
-      setShowRequestOtp(true);
-    } else if (showRequestOtp) {
-      setShowRequestOtp(false);
+    if (showForgotPassword) {
+      setShowForgotPassword(false);
       setShowSignIn(true);
     } else if (showCreateAccount) {
       setShowCreateAccount(false);
       setShowSignIn(true);
     }
-  }, [showResetPassword, showOtpVerification, showRequestOtp, showCreateAccount]);
+  }, [showForgotPassword, showCreateAccount]);
 
   const mainAtRoot = isAtRoot({ overlays: overlayState, closeFns });
-  const authAtRoot =
-    !showResetPassword &&
-    !showOtpVerification &&
-    !showRequestOtp &&
-    !showCreateAccount;
+  const authAtRoot = !showForgotPassword && !showCreateAccount;
 
   useAppBackHandler(
     isAuthenticated ? mainAtRoot : authAtRoot,
@@ -291,75 +276,18 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    if (showResetPassword && resetToken) {
+    if (showForgotPassword) {
       return (
         <GestureHandlerRootView style={styles.root}>
           <SafeAreaProvider>
-            <ResetPasswordPage
-              resetToken={resetToken}
+            <ForgotPasswordPage
+              initialEmail={forgotPasswordEmail}
               onSuccess={() => {
-                setResetToken('');
-                setShowResetPassword(false);
+                setShowForgotPassword(false);
                 setShowSignIn(true);
               }}
               onBack={() => {
-                setShowResetPassword(false);
-                setShowOtpVerification(true);
-              }}
-            />
-            <StatusBar style="light" />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      );
-    }
-    if (showOtpVerification && forgotPasswordEmail) {
-      return (
-        <GestureHandlerRootView style={styles.root}>
-          <SafeAreaProvider>
-            <OtpVerificationPage
-              email={forgotPasswordEmail}
-              mode={otpFlowMode}
-              onSuccess={(result) => {
-                if (otpFlowMode === 'login' && result.session) {
-                  setAuthFromSession({
-                    access_token: result.session.access_token,
-                    refresh_token: result.session.refresh_token,
-                    user: result.user,
-                  });
-                  setShowOtpVerification(false);
-                  setShowRequestOtp(false);
-                  setShowSignIn(false);
-                  setShowOnboarding(false);
-                } else if (result.resetToken) {
-                  setResetToken(result.resetToken);
-                  setShowOtpVerification(false);
-                  setShowResetPassword(true);
-                }
-              }}
-              onBack={() => {
-                setShowOtpVerification(false);
-                setShowRequestOtp(true);
-              }}
-            />
-            <StatusBar style="light" />
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      );
-    }
-    if (showRequestOtp) {
-      return (
-        <GestureHandlerRootView style={styles.root}>
-          <SafeAreaProvider>
-            <RequestOtpPage
-              initialEmail={forgotPasswordEmail}
-              mode={otpFlowMode}
-              onOtpSent={(email) => {
-                setForgotPasswordEmail(email);
-                setShowRequestOtp(false);
-                setShowOtpVerification(true);
-              }}
-              onBack={() => {
-                setShowRequestOtp(false);
+                setShowForgotPassword(false);
                 setShowSignIn(true);
               }}
             />
@@ -402,17 +330,10 @@ function AppContent() {
                 setShowSignIn(false);
                 setShowCreateAccount(true);
               }}
-              onForgotPassword={(prefillEmail) => {
-                setOtpFlowMode('forgot-password');
-                setForgotPasswordEmail(prefillEmail || '');
+              onForgotPassword={(email) => {
+                setForgotPasswordEmail(email || '');
                 setShowSignIn(false);
-                setShowRequestOtp(true);
-              }}
-              onLoginWithOtp={(prefillEmail) => {
-                setOtpFlowMode('login');
-                setForgotPasswordEmail(prefillEmail || '');
-                setShowSignIn(false);
-                setShowRequestOtp(true);
+                setShowForgotPassword(true);
               }}
             />
             <StatusBar style="light" />
@@ -458,17 +379,10 @@ function AppContent() {
               setShowSignIn(false);
               setShowCreateAccount(true);
             }}
-            onForgotPassword={(prefillEmail) => {
-              setOtpFlowMode('forgot-password');
-              setForgotPasswordEmail(prefillEmail || '');
+            onForgotPassword={(email) => {
+              setForgotPasswordEmail(email || '');
               setShowSignIn(false);
-              setShowRequestOtp(true);
-            }}
-            onLoginWithOtp={(prefillEmail) => {
-              setOtpFlowMode('login');
-              setForgotPasswordEmail(prefillEmail || '');
-              setShowSignIn(false);
-              setShowRequestOtp(true);
+              setShowForgotPassword(true);
             }}
           />
           <StatusBar style="light" />
@@ -490,6 +404,7 @@ function AppContent() {
       <SafeAreaProvider>
       <ProfileProvider>
       <BalanceProvider>
+      <PushRegistration isAuthenticated={isAuthenticated} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           {activeTab === 'home' && (
@@ -760,6 +675,10 @@ function AppContent() {
         onOpenSendReminders={() => {
           setShowReportsAnalytics(false);
           setShowSendReminders(true);
+        }}
+        onNavigateToCustomers={() => {
+          setShowReportsAnalytics(false);
+          setActiveTab('customers');
         }}
       />
       <ItemListPage

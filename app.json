@@ -70,6 +70,12 @@
         {
           "contactsPermission": "Allow Trustopay to access your contacts to quickly add customers."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
       ]
     ],
     "extra": {
