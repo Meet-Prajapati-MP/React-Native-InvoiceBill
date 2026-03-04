@@ -543,6 +543,7 @@ function AppContent() {
               onOpenHelpCentre={() => setShowHelpCentre(true)}
               onOpenMessageCentre={() => setShowMessageCentre(true)}
               onOpenVerificationCenter={() => setShowVerificationCenter(true)}
+              onOpenNotifications={() => setShowNotifications(true)}
               isAuthenticated={isAuthenticated}
               onLogOut={() => setShowLogoutConfirm(true)}
               onSignIn={() => setShowSignIn(true)}

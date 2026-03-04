@@ -547,7 +547,33 @@ CREATE POLICY "Users can insert own activity"
   WITH CHECK (auth.uid() = user_id);
 
 -- =============================================================================
--- 18. MESSAGES (Message Centre)
+-- 18. NOTIFICATIONS (In-app notification center)
+-- =============================================================================
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_phone TEXT,
+  title TEXT NOT NULL,
+  body TEXT,
+  type TEXT NOT NULL CHECK (type IN ('invoice', 'quotation', 'recurring', 'system', 'payment')),
+  reference_id UUID,
+  deep_link_screen TEXT DEFAULT 'invoices',
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read);
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can CRUD own notifications"
+  ON notifications FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- =============================================================================
+-- 19. MESSAGES (Message Centre)
 -- =============================================================================
 CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -571,7 +597,54 @@ CREATE POLICY "Users can CRUD own messages"
   WITH CHECK (auth.uid() = user_id);
 
 -- =============================================================================
--- 19. UPDATED_AT TRIGGER
+-- 20. REMINDER_SETTINGS & REMINDER_LOG
+-- =============================================================================
+CREATE TABLE reminder_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  template_id TEXT NOT NULL DEFAULT 'friendly',
+  subject TEXT,
+  message TEXT,
+  send_via_email BOOLEAN DEFAULT TRUE,
+  send_via_sms BOOLEAN DEFAULT FALSE,
+  attach_pdf BOOLEAN DEFAULT TRUE,
+  cc_me BOOLEAN DEFAULT FALSE,
+  log_activity BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_reminder_settings_user_id ON reminder_settings(user_id);
+
+ALTER TABLE reminder_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can CRUD own reminder_settings"
+  ON reminder_settings FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE TABLE reminder_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL CHECK (channel IN ('email', 'sms')),
+  recipient_email TEXT,
+  recipient_phone TEXT,
+  subject TEXT,
+  sent_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_reminder_log_user_id ON reminder_log(user_id);
+CREATE INDEX idx_reminder_log_invoice_id ON reminder_log(invoice_id);
+
+ALTER TABLE reminder_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own reminder_log"
+  ON reminder_log FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- =============================================================================
+-- 21. UPDATED_AT TRIGGER
 -- =============================================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -627,6 +700,10 @@ CREATE TRIGGER invoice_settings_updated_at
 
 CREATE TRIGGER verification_status_updated_at
   BEFORE UPDATE ON verification_status
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER reminder_settings_updated_at
+  BEFORE UPDATE ON reminder_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- =============================================================================

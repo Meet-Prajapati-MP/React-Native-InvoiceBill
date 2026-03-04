@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
@@ -15,6 +16,8 @@ import { Input } from '../components/ui/Input';
 import { SelectInput } from '../components/SelectInput';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 interface SendReminderPageProps {
   isOpen: boolean;
@@ -57,11 +60,48 @@ const TEMPLATE_CONTENT: Record<string, { subject: string; body: string }> = {
   },
 };
 
-const MOCK_INVOICES = [
-  { id: '1', number: 'INV-045', client: 'Tech Solutions', amount: 10000, date: 'Feb 15, 2026', overdue: 5, status: 'overdue' },
-  { id: '2', number: 'INV-042', client: 'Global Services', amount: 15000, date: 'Jan 30, 2026', overdue: 11, status: 'overdue' },
-  { id: '3', number: 'INV-048', client: 'Alpha Corp', amount: 5000, date: 'Feb 20, 2026', overdue: 0, status: 'pending' },
-];
+function formatDateShort(d: string | null): string {
+  if (!d) return '';
+  const x = new Date(d);
+  return isNaN(x.getTime()) ? '' : x.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function toReminderInvoice(raw: Record<string, unknown>): {
+  id: string;
+  number: string;
+  client: string;
+  amount: number;
+  date: string;
+  overdue: number;
+  status: string;
+  type?: string;
+} {
+  const cust = raw.customers as { name?: string } | undefined;
+  const client = cust?.name ?? (raw.client_name as string) ?? 'Unknown';
+  const itemsRaw = raw.invoice_items;
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+  const amount = items.reduce((s: number, i: unknown) => {
+    const item = i as Record<string, unknown>;
+    const qty = Math.max(0, parseInt(String(item?.qty ?? 1), 10) || 1);
+    const rate = parseFloat(String(item?.rate ?? 0)) || 0;
+    return s + qty * rate;
+  }, 0);
+  const dueDate = raw.due_date as string | null;
+  const due = dueDate ? new Date(dueDate) : null;
+  const now = new Date();
+  const overdue = due && due < now ? Math.floor((now.getTime() - due.getTime()) / 86400000) : 0;
+  const status = (raw.status as string) || 'pending';
+  return {
+    id: String(raw.id ?? ''),
+    number: String(raw.number ?? ''),
+    client,
+    amount: Number.isFinite(amount) ? amount : 0,
+    date: formatDateShort(dueDate),
+    overdue,
+    status,
+    type: raw.type as string,
+  };
+}
 
 export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
   const [step, setStep] = useState<1 | 2>(1);
@@ -80,14 +120,90 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
   const [logActivity, setLogActivity] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [invoices, setInvoices] = useState<ReturnType<typeof toReminderInvoice>[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const skipTemplateSyncRef = React.useRef(false);
+
+  const userName = (user as { user_metadata?: { full_name?: string } })?.user_metadata?.full_name || 'InvoiceBill User';
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      setLoadingInvoices(true);
+      const { data } = await api.get<unknown>(`/invoices?_=${Date.now()}`);
+      const raw = Array.isArray(data) ? data : (data as { data?: unknown[] })?.data ?? [];
+      const list = raw.map((r) => toReminderInvoice(r as Record<string, unknown>));
+      const pendingOverdue = list.filter((i) => i.type === 'sent' && (i.status === 'pending' || i.status === 'overdue'));
+      setInvoices(pendingOverdue);
+    } catch {
+      setInvoices([]);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      setLoadingSettings(true);
+      skipTemplateSyncRef.current = true;
+      const { data } = await api.get<{
+        template_id?: string;
+        subject?: string;
+        message?: string;
+        send_via_email?: boolean;
+        send_via_sms?: boolean;
+        attach_pdf?: boolean;
+        cc_me?: boolean;
+        log_activity?: boolean;
+      } | null>('/reminder-settings');
+      if (data) {
+        setTemplateId(data.template_id || 'friendly');
+        setSubject(data.subject ?? TEMPLATE_CONTENT[data.template_id || 'friendly']?.subject ?? '');
+        setMessage(data.message ?? TEMPLATE_CONTENT[data.template_id || 'friendly']?.body ?? '');
+        setSendViaEmail(data.send_via_email ?? true);
+        setSendViaSMS(data.send_via_sms ?? false);
+        setAttachPDF(data.attach_pdf ?? true);
+        setCcMe(data.cc_me ?? false);
+        setLogActivity(data.log_activity ?? true);
+      } else {
+        const content = TEMPLATE_CONTENT['friendly'];
+        if (content) {
+          setSubject(content.subject);
+          setMessage(content.body);
+        }
+      }
+    } catch {
+      const content = TEMPLATE_CONTENT['friendly'];
+      if (content) {
+        setSubject(content.subject);
+        setMessage(content.body);
+      }
+    } finally {
+      setLoadingSettings(false);
+    }
+  }, []);
 
   useEffect(() => {
+    if (isOpen) {
+      fetchInvoices();
+      fetchSettings();
+    }
+  }, [isOpen, fetchInvoices, fetchSettings]);
+
+  useEffect(() => {
+    if (skipTemplateSyncRef.current) {
+      skipTemplateSyncRef.current = false;
+      return;
+    }
     const content = TEMPLATE_CONTENT[templateId];
     if (content) {
       setSubject(content.subject);
       setMessage(content.body);
     }
   }, [templateId]);
+
 
   useEffect(() => {
     if (selectedInvoices.length > 0) {
@@ -99,6 +215,23 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
       else setTemplateId('gentle');
     }
   }, [selectedInvoices]);
+
+  const saveSettings = useCallback(async () => {
+    try {
+      await api.post('/reminder-settings', {
+        template_id: templateId,
+        subject,
+        message,
+        send_via_email: sendViaEmail,
+        send_via_sms: sendViaSMS,
+        attach_pdf: attachPDF,
+        cc_me: ccMe,
+        log_activity: logActivity,
+      });
+    } catch {
+      // non-fatal
+    }
+  }, [templateId, subject, message, sendViaEmail, sendViaSMS, attachPDF, ccMe, logActivity]);
 
   const toggleInvoice = (invoice: any) => {
     if (selectedInvoices.find((i) => i.id === invoice.id)) {
@@ -116,15 +249,33 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
       .replace(/{due_date}/g, selectedInvoices[0]?.date || 'Date')
       .replace(/{days_overdue}/g, String(selectedInvoices[0]?.overdue || 0))
       .replace(/{payment_link}/g, 'trustopay.link/pay/xxx')
-      .replace(/{your_name}/g, 'Arjun Mehta');
+      .replace(/{your_name}/g, userName);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    setSendError(null);
     setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
+    try {
+      await saveSettings();
+      await api.post('/reminders/send', {
+        invoice_ids: selectedInvoices.map((i) => i.id),
+        subject,
+        message,
+        send_via_email: sendViaEmail,
+        send_via_sms: sendViaSMS,
+        attach_pdf: attachPDF,
+        cc_me: ccMe,
+        log_activity: logActivity,
+      });
       setStep(2);
-    }, 2000);
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        ?? (err as { message?: string })?.message
+        ?? 'Failed to send reminders';
+      setSendError(msg);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const canSend = selectedInvoices.length > 0 && (sendViaEmail || sendViaSMS);
@@ -175,6 +326,12 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
             </View>
 
             <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+              {sendError && (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle" size={18} color={colors.red500} />
+                  <Text style={styles.errorText}>{sendError}</Text>
+                </View>
+              )}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>SELECT INVOICES</Text>
@@ -184,7 +341,15 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
                 </View>
 
                 {showInvoiceList ? (
-                  MOCK_INVOICES.map((inv) => {
+                  loadingInvoices ? (
+                    <View style={styles.loadingRow}>
+                      <ActivityIndicator size="small" color={colors.purple} />
+                      <Text style={styles.loadingText}>Loading invoices...</Text>
+                    </View>
+                  ) : invoices.length === 0 ? (
+                    <Text style={styles.emptyText}>No pending or overdue invoices</Text>
+                  ) : (
+                  invoices.map((inv) => {
                     const isSelected = !!selectedInvoices.find((i) => i.id === inv.id);
                     return (
                       <TouchableOpacity
@@ -213,6 +378,7 @@ export function SendReminderPage({ isOpen, onClose }: SendReminderPageProps) {
                       </TouchableOpacity>
                     );
                   })
+                  )
                 ) : (
                   <View style={styles.selectedSummary}>
                     <Text style={styles.selectedText}>{selectedInvoices.length} invoices selected</Text>
@@ -685,4 +851,17 @@ const styles = StyleSheet.create({
   previewBtnText: { fontSize: 14, fontWeight: '700', color: colors.purple },
   previewFooter: { flexDirection: 'row', padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: colors.gray100 },
   previewFooterBtn: { flex: 1 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 8 },
+  loadingText: { fontSize: 14, color: colors.gray600 },
+  emptyText: { fontSize: 14, color: colors.gray500, padding: 16, textAlign: 'center' },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.red50,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: { flex: 1, fontSize: 14, color: colors.red600 },
 });

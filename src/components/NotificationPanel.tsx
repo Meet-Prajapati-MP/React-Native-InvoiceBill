@@ -71,13 +71,18 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   const [markingRead, setMarkingRead] = useState<string | null>(null);
   const { refreshUnreadCount } = useNotifications();
 
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
   const fetchNotifications = useCallback(async () => {
+    setFetchError(null);
     try {
       const { data } = await api.get<{ notifications?: Notification[] }>('/notifications');
       const list = Array.isArray(data?.notifications) ? data.notifications : Array.isArray(data) ? data : [];
       setNotifications(list);
-    } catch {
+    } catch (e: unknown) {
       setNotifications([]);
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      setFetchError(status === 401 ? 'Please sign in to view notifications' : 'Failed to load notifications');
     }
   }, []);
 
@@ -150,6 +155,12 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
           {loading ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator size="large" color={colors.purple} />
+            </View>
+          ) : fetchError ? (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="alert-circle-outline" size={48} color={colors.gray300} />
+              <Text style={styles.emptyTitle}>Unable to load</Text>
+              <Text style={styles.emptySub}>{fetchError}</Text>
             </View>
           ) : notifications.length === 0 ? (
             <View style={styles.emptyWrap}>

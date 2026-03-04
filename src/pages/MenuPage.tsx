@@ -21,6 +21,7 @@ interface MenuPageProps {
   onOpenHelpCentre?: () => void;
   onOpenMessageCentre?: () => void;
   onOpenVerificationCenter?: () => void;
+  onOpenNotifications?: () => void;
   onLogOut?: () => void;
   isAuthenticated?: boolean;
   onSignIn?: () => void;
@@ -52,13 +53,14 @@ const menuGroups = [
   {
     title: 'Get Support',
     items: [
+      { icon: 'notifications-outline' as const, label: 'Notification Center', action: 'notification-center' },
       { icon: 'help-circle-outline' as const, label: 'Help Centre', action: 'help-centre' },
       { icon: 'chatbubble-outline' as const, label: 'Message Centre', action: 'message-centre' },
     ],
   },
 ];
 
-export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpenBankAccounts, onOpenActivity, onOpenBusinessProfile, onOpenInvoiceSettings, onOpenTermsConditions, onOpenMyAddresses, onOpenSendReminders, onOpenReportsAnalytics, onOpenItemList, onOpenHelpCentre, onOpenMessageCentre, onOpenVerificationCenter, onLogOut, isAuthenticated, onSignIn }: MenuPageProps) {
+export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpenBankAccounts, onOpenActivity, onOpenBusinessProfile, onOpenInvoiceSettings, onOpenTermsConditions, onOpenMyAddresses, onOpenSendReminders, onOpenReportsAnalytics, onOpenItemList, onOpenHelpCentre, onOpenMessageCentre, onOpenVerificationCenter, onOpenNotifications, onLogOut, isAuthenticated, onSignIn }: MenuPageProps) {
   const { profile } = useProfile();
   const displayName = profile?.full_name || 'User';
   const displayEmail = profile?.email || '';
@@ -104,6 +106,7 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
                   else if (item.action === 'help-centre') onOpenHelpCentre?.();
                   else if (item.action === 'message-centre') onOpenMessageCentre?.();
                   else if (item.action === 'verification-center') onOpenVerificationCenter?.();
+                  else if (item.action === 'notification-center') onOpenNotifications?.();
                   else if (item.action) onNavigate(item.action);
                 }}
                 style={styles.menuItem}

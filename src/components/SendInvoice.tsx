@@ -131,6 +131,7 @@ export function SendInvoice({
       notes: notes.trim() || undefined,
       include_gst: includeGST,
       payment_type: paymentType,
+      enable_reminders: enableReminders,
       recipient_phone: selectedCustomer.phone || undefined,
       recipient_email: (selectedCustomer as { email?: string }).email || undefined,
       items: validItems.map((item, idx) => ({
