@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +16,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { formatINR } from '../lib/utils';
 import { colors } from '../theme/colors';
+import { api } from '../services/api';
 
 interface ReportsAnalyticsPageProps {
   isOpen: boolean;
@@ -21,7 +24,14 @@ interface ReportsAnalyticsPageProps {
   onOpenSendReminders?: () => void;
 }
 
-const DATA_BY_PERIOD: Record<string, {
+const PERIOD_MAP: Record<string, string> = {
+  'This Month': 'this_month',
+  'Last 30 Days': 'last_30',
+  'This Quarter': 'this_quarter',
+  Custom: 'this_month',
+};
+
+interface AnalyticsData {
   totalInvoiced: number;
   totalChange: number;
   invoicesSent: number;
@@ -36,108 +46,26 @@ const DATA_BY_PERIOD: Record<string, {
   avgMonthly: number;
   avgPayDays: number;
   onTimePct: number;
-}> = {
-  'This Month': {
-    totalInvoiced: 125000,
-    totalChange: 12,
-    invoicesSent: 22,
-    received: 80000,
-    receivedChange: 8,
-    invoicesPaid: 15,
-    pending: 30000,
-    pendingCount: 5,
-    overdue: 15000,
-    overdueCount: 2,
-    months: [
-      { month: 'Sep', amount: 85000 },
-      { month: 'Oct', amount: 92000 },
-      { month: 'Nov', amount: 105000 },
-      { month: 'Dec', amount: 125000 },
-      { month: 'Jan', amount: 45000 },
-      { month: 'Feb', amount: 52000 },
-    ],
-    avgMonthly: 84000,
-    avgPayDays: 18,
-    onTimePct: 65,
-  },
-  'Last 30 Days': {
-    totalInvoiced: 98000,
-    totalChange: 5,
-    invoicesSent: 18,
-    received: 72000,
-    receivedChange: 3,
-    invoicesPaid: 13,
-    pending: 18000,
-    pendingCount: 3,
-    overdue: 8000,
-    overdueCount: 2,
-    months: [
-      { month: 'Oct', amount: 92000 },
-      { month: 'Nov', amount: 105000 },
-      { month: 'Dec', amount: 125000 },
-      { month: 'Jan', amount: 45000 },
-      { month: 'Feb', amount: 52000 },
-      { month: 'Mar', amount: 98000 },
-    ],
-    avgMonthly: 86000,
-    avgPayDays: 15,
-    onTimePct: 72,
-  },
-  'This Quarter': {
-    totalInvoiced: 345000,
-    totalChange: 18,
-    invoicesSent: 48,
-    received: 280000,
-    receivedChange: 15,
-    invoicesPaid: 40,
-    pending: 42000,
-    pendingCount: 5,
-    overdue: 23000,
-    overdueCount: 3,
-    months: [
-      { month: 'Oct', amount: 92000 },
-      { month: 'Nov', amount: 105000 },
-      { month: 'Dec', amount: 125000 },
-      { month: 'Jan', amount: 45000 },
-      { month: 'Feb', amount: 52000 },
-      { month: 'Mar', amount: 98000 },
-    ],
-    avgMonthly: 95000,
-    avgPayDays: 20,
-    onTimePct: 60,
-  },
-  Custom: {
-    totalInvoiced: 125000,
-    totalChange: 12,
-    invoicesSent: 22,
-    received: 80000,
-    receivedChange: 8,
-    invoicesPaid: 15,
-    pending: 30000,
-    pendingCount: 5,
-    overdue: 15000,
-    overdueCount: 2,
-    months: [
-      { month: 'Sep', amount: 85000 },
-      { month: 'Oct', amount: 92000 },
-      { month: 'Nov', amount: 105000 },
-      { month: 'Dec', amount: 125000 },
-      { month: 'Jan', amount: 45000 },
-      { month: 'Feb', amount: 52000 },
-    ],
-    avgMonthly: 84000,
-    avgPayDays: 18,
-    onTimePct: 65,
-  },
-};
+  topClients: { name: string; amount: number; invoices: number }[];
+}
 
-const TOP_CLIENTS = [
-  { name: 'Tech Solutions Ltd', amount: 85000, invoices: 3 },
-  { name: 'Creative Studio', amount: 45000, invoices: 2 },
-  { name: 'Global Services', amount: 25000, invoices: 1 },
-  { name: 'Alpha Corp', amount: 12000, invoices: 1 },
-  { name: 'Beta Systems', amount: 8000, invoices: 1 },
-];
+const DEFAULT_DATA: AnalyticsData = {
+  totalInvoiced: 0,
+  totalChange: 0,
+  invoicesSent: 0,
+  received: 0,
+  receivedChange: 0,
+  invoicesPaid: 0,
+  pending: 0,
+  pendingCount: 0,
+  overdue: 0,
+  overdueCount: 0,
+  months: [],
+  avgMonthly: 0,
+  avgPayDays: 0,
+  onTimePct: 0,
+  topClients: [],
+};
 
 const REPORTS = [
   { key: 'sales', label: 'Sales Summary', icon: '📊' },
@@ -151,17 +79,48 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeReport, setActiveReport] = useState<string | null>(null);
+  const [data, setData] = useState<AnalyticsData>(DEFAULT_DATA);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const data = useMemo(
-    () => DATA_BY_PERIOD[timeFilter] || DATA_BY_PERIOD['This Month'],
-    [timeFilter]
-  );
+  const period = PERIOD_MAP[timeFilter] ?? 'this_month';
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setFetchError(null);
+      const { data: res } = await api.get<AnalyticsData>(`/reports/analytics?period=${period}&_=${Date.now()}`);
+      setData(res ?? DEFAULT_DATA);
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        ?? (err as { message?: string })?.message
+        ?? 'Could not load analytics';
+      setFetchError(msg);
+      setData(DEFAULT_DATA);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [period]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+      fetchAnalytics();
+    }
+  }, [isOpen, fetchAnalytics]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchAnalytics();
+  }, [fetchAnalytics]);
   const outstanding = data.pending + data.overdue;
   const totalInvoices = data.invoicesPaid + data.pendingCount + data.overdueCount;
   const paidPct = totalInvoices > 0 ? Math.round((data.invoicesPaid / totalInvoices) * 100) : 0;
   const pendingPct = totalInvoices > 0 ? Math.round((data.pendingCount / totalInvoices) * 100) : 0;
   const overduePct = totalInvoices > 0 ? Math.round((data.overdueCount / totalInvoices) * 100) : 0;
-  const maxRevenue = Math.max(...data.months.map((m) => m.amount), 1);
+  const chartMonths = data.months.length > 0 ? data.months : [{ month: '—', amount: 0 }];
+  const maxRevenue = Math.max(...chartMonths.map((m) => m.amount), 1);
 
   const circumference = 88;
   const paidStroke = (paidPct / 100) * circumference;
@@ -193,7 +152,13 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
               <TouchableOpacity
                 key={f}
                 style={[styles.filterChip, timeFilter === f && styles.filterChipActive]}
-                onPress={() => (f === 'Custom' ? setShowDatePicker(true) : setTimeFilter(f))}
+                onPress={() => {
+                  if (f === 'Custom') setShowDatePicker(true);
+                  else {
+                    setTimeFilter(f);
+                    setLoading(true);
+                  }
+                }}
               >
                 {f === 'Custom' && <Ionicons name="calendar-outline" size={11} color={timeFilter === f ? colors.white : colors.gray600} style={{ marginRight: 3 }} />}
                 <Text style={[styles.filterChipText, timeFilter === f && styles.filterChipTextActive]}>{f}</Text>
@@ -202,7 +167,28 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
           </ScrollView>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.purple]} />
+          }
+        >
+          {loading && !refreshing ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={colors.purple} />
+              <Text style={styles.loadingText}>Loading analytics...</Text>
+            </View>
+          ) : fetchError ? (
+            <View style={styles.errorWrap}>
+              <Ionicons name="alert-circle-outline" size={48} color={colors.red500} />
+              <Text style={styles.errorText}>{fetchError}</Text>
+              <Button variant="outline" onPress={() => { setLoading(true); fetchAnalytics(); }} style={styles.retryBtn}>
+                Retry
+              </Button>
+            </View>
+          ) : (
+          <>
           <Card style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardLabel}>TOTAL INVOICED</Text>
@@ -332,7 +318,7 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
                 <Text style={styles.yAxisLabel}>₹0</Text>
               </View>
               <View style={styles.barsWrap}>
-                {data.months.map((d, i) => {
+                {chartMonths.map((d, i) => {
                   const barHeight = maxRevenue > 0 ? (d.amount / maxRevenue) * 80 : 0;
                   return (
                     <View key={`${timeFilter}-${i}`} style={styles.barCol}>
@@ -352,8 +338,12 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
 
           <Text style={styles.sectionTitle}>TOP CLIENTS (BY REVENUE)</Text>
           <Card style={styles.clientsCard}>
-            {TOP_CLIENTS.map((c, i) => (
-              <View key={i} style={[styles.clientRow, i < TOP_CLIENTS.length - 1 && styles.clientRowBorder]}>
+            {data.topClients.length === 0 ? (
+              <Text style={styles.emptyClients}>No client data for this period</Text>
+            ) : (
+            <>
+            {data.topClients.map((c, i) => (
+              <View key={i} style={[styles.clientRow, i < data.topClients.length - 1 && styles.clientRowBorder]}>
                 <View style={styles.clientLeft}>
                   <Text style={styles.clientNum}>{i + 1}.</Text>
                   <View>
@@ -368,6 +358,8 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
               <Text style={styles.viewAllText}>View All Clients</Text>
               <Ionicons name="chevron-forward" size={12} color={colors.purple} />
             </TouchableOpacity>
+            </>
+            )}
           </Card>
 
           <Text style={styles.sectionTitle}>QUICK INSIGHTS</Text>
@@ -412,6 +404,8 @@ export function ReportsAnalyticsPage({ isOpen, onClose, onOpenSendReminders }: R
           </View>
 
           <View style={{ height: 40 }} />
+          </>
+          )}
         </ScrollView>
       </View>
 
@@ -692,6 +686,12 @@ const styles = StyleSheet.create({
   reportHighlightValue: { fontSize: 24, fontWeight: '700', color: colors.navy },
   reportHighlightValueRed: { fontSize: 24, fontWeight: '700', color: colors.red500 },
   reportHighlightSub: { fontSize: 11, color: colors.green600, fontWeight: '600', marginTop: 4 },
+  loadingWrap: { padding: 48, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { fontSize: 14, color: colors.gray500, marginTop: 12 },
+  errorWrap: { padding: 32, alignItems: 'center' },
+  errorText: { fontSize: 14, color: colors.red500, textAlign: 'center', marginTop: 12 },
+  retryBtn: { marginTop: 16 },
+  emptyClients: { padding: 24, textAlign: 'center', fontSize: 14, color: colors.gray500 },
   reportFooter: {
     flexDirection: 'row',
     padding: 16,
