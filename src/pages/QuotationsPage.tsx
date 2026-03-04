@@ -86,8 +86,8 @@ const STATUS_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
-  { key: 'date-desc', label: 'Date (Newest first)' },
   { key: 'date-asc', label: 'Date (Oldest first)' },
+  { key: 'date-desc', label: 'Date (Newest first)' },
   { key: 'amount-desc', label: 'Amount (High to Low)' },
   { key: 'amount-asc', label: 'Amount (Low to High)' },
   { key: 'client', label: 'Client Name (A–Z)' },
@@ -146,7 +146,7 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
   const [sentQuotations, setSentQuotations] = useState<Quotation[]>([]);
   const [receivedQuotations, setReceivedQuotations] = useState<Quotation[]>([]);
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
-  const [sortKey, setSortKey] = useState('date-desc');
+  const [sortKey, setSortKey] = useState('date-asc');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showSortPanel, setShowSortPanel] = useState(false);
   const [loading, setLoading] = useState(true);

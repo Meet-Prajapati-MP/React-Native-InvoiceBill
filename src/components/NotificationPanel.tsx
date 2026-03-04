@@ -76,15 +76,23 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   const fetchNotifications = useCallback(async () => {
     setFetchError(null);
     try {
-      const { data } = await api.get<{ notifications?: Notification[] }>('/notifications');
-      const list = Array.isArray(data?.notifications) ? data.notifications : Array.isArray(data) ? data : [];
-      setNotifications(list);
+      const { data } = await api.get<{ notifications?: Notification[] } | Notification[]>('/notifications');
+      const list = Array.isArray(data?.notifications)
+        ? data.notifications
+        : Array.isArray(data)
+          ? data
+          : (data as Record<string, unknown>)?.notifications ?? [];
+      setNotifications(Array.isArray(list) ? list : []);
+      await refreshUnreadCount();
+      if (__DEV__ && list.length > 0) console.log('[NotificationPanel] Loaded', list.length, 'notifications');
     } catch (e: unknown) {
       setNotifications([]);
       const status = (e as { response?: { status?: number } })?.response?.status;
-      setFetchError(status === 401 ? 'Please sign in to view notifications' : 'Failed to load notifications');
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setFetchError(status === 401 ? 'Please sign in to view notifications' : msg || 'Failed to load notifications');
+      if (__DEV__) console.warn('[NotificationPanel] Fetch failed:', status, msg || e);
     }
-  }, []);
+  }, [refreshUnreadCount]);
 
   useEffect(() => {
     if (isOpen) {

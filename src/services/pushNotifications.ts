@@ -8,10 +8,14 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { api } from './api';
 
+/** EAS project ID – fallback when Constants doesn't expose it (Expo Go, some builds) */
+const EAS_PROJECT_ID = '3774e015-5ef5-4a07-97e8-3d966b289569';
+
 /** Request permission, get token only if granted. Returns null if denied/emulator/error. Never throws. */
 export async function getExpoPushTokenAsync(): Promise<string | null> {
   try {
     if (!Device.isDevice) {
+      if (__DEV__) console.log('[Push] Skipped: not a physical device');
       return null;
     }
 
@@ -31,18 +35,32 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
     }
 
     if (finalStatus !== 'granted') {
+      if (__DEV__) console.log('[Push] Skipped: permission not granted');
+      return null;
+    }
+
+    // Token allocation only after permission is granted – re-check to be sure
+    const { status: currentStatus } = await Notifications.getPermissionsAsync();
+    if (currentStatus !== 'granted') {
+      if (__DEV__) console.log('[Push] Skipped: permission revoked before token allocation');
       return null;
     }
 
     const projectId =
-      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+      Constants?.expoConfig?.extra?.eas?.projectId ??
+      Constants?.easConfig?.projectId ??
+      EAS_PROJECT_ID;
     if (!projectId) {
+      if (__DEV__) console.log('[Push] Skipped: no projectId');
       return null;
     }
 
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    return token && typeof token === 'string' ? token : null;
-  } catch {
+    const result = token && typeof token === 'string' ? token : null;
+    if (__DEV__ && result) console.log('[Push] Token obtained');
+    return result;
+  } catch (e) {
+    if (__DEV__) console.warn('[Push] getExpoPushTokenAsync error:', e);
     return null;
   }
 }
@@ -51,8 +69,10 @@ export async function getExpoPushTokenAsync(): Promise<string | null> {
 export async function registerPushTokenWithBackend(token: string): Promise<boolean> {
   try {
     await api.post('/register-push-token', { token });
+    if (__DEV__) console.log('[Push] Token saved to backend');
     return true;
-  } catch {
+  } catch (e) {
+    if (__DEV__) console.warn('[Push] registerPushTokenWithBackend failed:', e);
     return false;
   }
 }
@@ -67,7 +87,7 @@ export async function registerForPushNotifications(): Promise<void> {
     if (token) {
       await registerPushTokenWithBackend(token);
     }
-  } catch {
-    /* never crash */
+  } catch (e) {
+    if (__DEV__) console.warn('[Push] registerForPushNotifications error:', e);
   }
 }
