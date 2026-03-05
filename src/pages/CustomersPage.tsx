@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator, Image, AppState, AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import { Input } from '../components/ui/Input';
@@ -48,9 +48,10 @@ interface CustomersPageProps {
   onSelectCustomer: (customer: Customer) => void;
   mode?: 'default' | 'select';
   onBeforeAddCustomer?: () => boolean;
+  refreshKey?: number;
 }
 
-export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddCustomer }: CustomersPageProps) {
+export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddCustomer, refreshKey = 0 }: CustomersPageProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +128,14 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
 
   useEffect(() => {
     fetchCustomers();
+  }, [fetchCustomers, refreshKey]);
+
+  // Refetch when app returns from background (handles "disappearing after hours")
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') fetchCustomers();
+    });
+    return () => sub.remove();
   }, [fetchCustomers]);
 
   const filtered = customers.filter(

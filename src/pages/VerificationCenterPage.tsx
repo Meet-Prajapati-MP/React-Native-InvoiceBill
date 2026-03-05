@@ -113,6 +113,20 @@ function maskGstin(gstin: string): string {
   return gstin.slice(0, 4) + 'XXXXXXX' + gstin.slice(-4);
 }
 
+/** Validate GSTIN format. Returns error message or null if valid. */
+function validateGstin(value: string): string | null {
+  const s = value?.trim().toUpperCase().replace(/\s/g, '') ?? '';
+  if (!s) return 'GSTIN number is required';
+  if (s.length !== 15) return 'GSTIN must be exactly 15 characters (e.g. 24ABCDE1234F1Z5)';
+  // Standard format: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric
+  const validFormat = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(s);
+  const fallbackFormat = s[13] === 'Z' && /^[A-Z0-9]+$/.test(s);
+  if (!validFormat && !fallbackFormat) {
+    return 'Invalid GSTIN format. Use 15 characters: 2 digits + 5 letters + 4 digits + letter + Z + checksum (e.g. 24ABCDE1234F1Z5)';
+  }
+  return null;
+}
+
 export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPageProps) {
   const [verifications, setVerifications] = useState<VerificationState>(INITIAL_STATE);
   const [activeFlow, setActiveFlow] = useState<'pan' | 'gstin' | 'bank' | null>(null);
@@ -123,6 +137,7 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
   const [panNumber, setPanNumber] = useState('');
   const [panName, setPanName] = useState('');
   const [gstinNumber, setGstinNumber] = useState('');
+  const [gstinError, setGstinError] = useState<string | null>(null);
   const [storedPanValue, setStoredPanValue] = useState<string | null>(null);
   const [storedGstinValue, setStoredGstinValue] = useState<string | null>(null);
   const [bankHolder, setBankHolder] = useState('Ankit Shah');
@@ -201,23 +216,27 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
   };
 
   const handleGstinSubmit = async () => {
-    const trimmed = gstinNumber.replace(/\s/g, '');
-    if (trimmed.length !== 15) {
-      showError('Invalid GSTIN format');
+    const trimmed = gstinNumber.replace(/\s/g, '').toUpperCase();
+    const validationError = validateGstin(trimmed);
+    if (validationError) {
+      setGstinError(validationError);
+      showError(validationError);
       return;
     }
+    setGstinError(null);
     setIsSubmitting(true);
     try {
       await api.post('/verification-status/gstin', {
-        gstin_number: trimmed.toUpperCase(),
+        gstin_number: trimmed,
       });
       setVerifications((p) => ({ ...p, gstin: 'verified' }));
-      setStoredGstinValue(trimmed.toUpperCase());
-      showSuccess('GSTIN Verified Successfully!');
+      setStoredGstinValue(trimmed);
+      showSuccess('GSTIN saved successfully!');
       setActiveFlow(null);
       setGstinNumber('');
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to save GSTIN';
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to save GSTIN. Please try again.';
+      setGstinError(msg);
       showError(msg);
     } finally {
       setIsSubmitting(false);
@@ -359,7 +378,7 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
         <Modal visible animationType="slide">
           <View style={styles.flowContainer}>
             <View style={styles.flowHeader}>
-              <TouchableOpacity onPress={() => setActiveFlow(null)}>
+              <TouchableOpacity onPress={() => { setActiveFlow(null); setGstinError(null); }}>
                 <Ionicons name="arrow-back" size={24} color={colors.navy} />
               </TouchableOpacity>
               <Text style={styles.flowTitle}>GSTIN Verification</Text>
@@ -372,11 +391,20 @@ export function VerificationCenterPage({ isOpen, onClose }: VerificationCenterPa
                   <Text style={styles.infoText}>Only required if you are GST registered. Skip if you're not.</Text>
                 </View>
               </View>
-              <Input label="GSTIN Number *" placeholder="24ABCDE1234F1Z5" value={gstinNumber} onChangeText={(t) => setGstinNumber(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15))} />
-              <Text style={styles.flowHint}>Format: 15 characters</Text>
+              <Input
+                label="GSTIN Number *"
+                placeholder="24ABCDE1234F1Z5"
+                value={gstinNumber}
+                onChangeText={(t) => {
+                  setGstinNumber(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15));
+                  setGstinError(null);
+                }}
+                error={gstinError ?? undefined}
+              />
+              <Text style={styles.flowHint}>Format: 15 characters (2 digits + 5 letters + 4 digits + letter + Z + checksum)</Text>
             </ScrollView>
             <View style={styles.flowFooterRow}>
-              <Button variant="outline" onPress={() => setActiveFlow(null)} style={styles.flowFooterBtn}>Skip</Button>
+              <Button variant="outline" onPress={() => { setActiveFlow(null); setGstinError(null); }} style={styles.flowFooterBtn}>Skip</Button>
               <Button onPress={handleGstinSubmit} disabled={isSubmitting || !gstinNumber} style={{ ...styles.flowFooterBtn, flex: 2 }}>
                 {isSubmitting ? 'Verifying...' : 'Verify GSTIN'}
               </Button>

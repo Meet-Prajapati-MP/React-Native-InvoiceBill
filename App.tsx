@@ -89,6 +89,7 @@ function AppContent() {
   const [preselectedCustomerForInvoice, setPreselectedCustomerForInvoice] = useState<any>(null);
   const [invoicesRefreshKey, setInvoicesRefreshKey] = useState(0);
   const [quotationsRefreshKey, setQuotationsRefreshKey] = useState(0);
+  const [customersRefreshKey, setCustomersRefreshKey] = useState(0);
   const [showPaymentWebView, setShowPaymentWebView] = useState(false);
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState('');
   const [paymentError, setPaymentError] = useState('');
@@ -432,6 +433,7 @@ function AppContent() {
           {activeTab === 'customers' && (
             <CustomersPage
               onSelectCustomer={setSelectedCustomer}
+              refreshKey={customersRefreshKey}
               onBeforeAddCustomer={() => {
                 if (!isAuthenticated) {
                   setShowSignIn(true);
@@ -612,6 +614,7 @@ function AppContent() {
           setShowSendInvoice(false);
           setPreselectedCustomerForInvoice(null);
           setInvoicesRefreshKey((k) => k + 1);
+          setCustomersRefreshKey((k) => k + 1);
           try { await refreshUnreadCount(); } catch { /* non-fatal */ }
         }}
         preselectedCustomer={preselectedCustomerForInvoice}
@@ -622,6 +625,7 @@ function AppContent() {
         onSuccess={async () => {
           setShowCreateQuotation(false);
           setQuotationsRefreshKey((k) => k + 1);
+          setCustomersRefreshKey((k) => k + 1);
           try { await refreshUnreadCount(); } catch { /* non-fatal */ }
         }}
       />
