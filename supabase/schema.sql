@@ -35,19 +35,44 @@ CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- Trigger: auto-create profile on signup
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+-- Trigger: auto-create profile on signup (SECURITY DEFINER + ON CONFLICT for resilience)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_phone TEXT;
+  v_email TEXT;
+  v_full_name TEXT;
 BEGIN
-  INSERT INTO profiles (id, full_name, email)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', NEW.email);
+  v_full_name := NEW.raw_user_meta_data->>'full_name';
+  v_email := COALESCE(NEW.email, NEW.raw_user_meta_data->>'email');
+  v_phone := COALESCE(
+    NEW.phone,
+    NEW.raw_user_meta_data->>'phone',
+    NEW.raw_user_meta_data->>'phone_number'
+  );
+  IF v_phone IS NOT NULL AND length(regexp_replace(v_phone, '\D', '', 'g')) >= 10 THEN
+    v_phone := right(regexp_replace(v_phone, '\D', '', 'g'), 10);
+  ELSE
+    v_phone := NULL;
+  END IF;
+  INSERT INTO public.profiles (id, full_name, email, phone)
+  VALUES (NEW.id, v_full_name, v_email, v_phone)
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+    email = COALESCE(EXCLUDED.email, profiles.email),
+    phone = COALESCE(EXCLUDED.phone, profiles.phone),
+    updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- =============================================================================
 -- 2. CUSTOMERS
