@@ -27,12 +27,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = await getStoredToken();
       const storedUser = await getStoredUser();
-      if (token && storedUser && typeof storedUser === 'object' && 'id' in storedUser) {
-        setUser(storedUser as User);
+      if (!token || !storedUser || typeof storedUser !== 'object' || !('id' in storedUser)) {
+        setUser(null);
+        return;
+      }
+      // Validate token with backend before trusting stored session (prevents stale/expired tokens)
+      const { api } = await import('../services/api');
+      const { data } = await api.get<{ user: unknown }>('/auth/me');
+      if (data?.user && typeof data.user === 'object' && 'id' in data.user) {
+        setUser(data.user as User);
       } else {
         setUser(null);
       }
-    } catch {
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 401) {
+        const { clearAuthSession } = await import('../services/api');
+        await clearAuthSession();
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
