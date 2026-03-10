@@ -50,6 +50,8 @@ import { colors } from './src/theme/colors';
 import { SplashScreen } from './src/components/SplashScreen';
 import { api } from './src/services/api';
 import { useAppBackHandler } from './src/hooks/useAppBackHandler';
+import { SocketManager } from './src/components/SocketManager';
+import { on } from './src/services/socket';
 import { getTopmostBackAction, isAtRoot } from './src/navigation/BackHandlerService';
 
 type Tab = 'home' | 'invoices' | 'quotes' | 'customers' | 'menu';
@@ -98,6 +100,28 @@ function AppContent() {
     const timer = setTimeout(() => setShowSplash(false), 3000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Real-time socket: refresh invoices & notifications on new/updated/paid events
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsubNew = on('new_invoice', () => {
+      setInvoicesRefreshKey((k) => k + 1);
+      refreshUnreadCount().catch(() => {});
+    });
+    const unsubUpdated = on('invoice_updated', () => {
+      setInvoicesRefreshKey((k) => k + 1);
+      refreshUnreadCount().catch(() => {});
+    });
+    const unsubPaid = on('invoice_paid', () => {
+      setInvoicesRefreshKey((k) => k + 1);
+      refreshUnreadCount().catch(() => {});
+    });
+    return () => {
+      unsubNew();
+      unsubUpdated();
+      unsubPaid();
+    };
+  }, [isAuthenticated, refreshUnreadCount]);
 
   const markOnboardingSeen = useCallback(async () => {
     try {
@@ -405,6 +429,7 @@ function AppContent() {
       <SafeAreaProvider>
       <ProfileProvider>
       <BalanceProvider>
+      <SocketManager />
       <PushRegistration isAuthenticated={isAuthenticated} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
