@@ -433,8 +433,9 @@ function AppContent() {
       <PushRegistration isAuthenticated={isAuthenticated} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <View style={[styles.tabPane, activeTab !== 'home' && styles.tabPaneHidden]}>
-            <HomePage
+          <View style={styles.paneWrapper}>
+            <View style={[styles.tabPane, activeTab !== 'home' && styles.tabPaneHidden]}>
+              <HomePage
               onNavigate={handleNavigate}
               onOpenNotifications={() => setShowNotifications(true)}
               onSelectTransaction={setSelectedTransaction}
@@ -490,6 +491,7 @@ function AppContent() {
               onLogOut={() => setShowLogoutConfirm(true)}
               onSignIn={() => setShowSignIn(true)}
             />
+          </View>
           </View>
 
           <BottomNav
@@ -775,6 +777,10 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     backgroundColor: colors.white,
+  },
+  paneWrapper: {
+    flex: 1,
+    position: 'relative',
   },
   tabPane: {
     flex: 1,

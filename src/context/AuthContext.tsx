@@ -1,5 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { clearAuthSession, getStoredToken, getStoredUser, setAuthSession } from '../services/api';
+import Constants from 'expo-constants';
+import {
+  clearAuthSession,
+  getStoredToken,
+  getStoredUser,
+  setAuthSession,
+  sessionStore,
+} from '../services/api';
 
 interface User {
   id: string;
@@ -19,32 +26,66 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** App version used to invalidate session when app is updated/reinstalled */
+function getCurrentAppVersion(): string {
+  return Constants.expoConfig?.version ?? '1.0.0';
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const hydrate = useCallback(async () => {
+    const clearAndAbort = async () => {
+      await clearAuthSession();
+      setUser(null);
+    };
+
     try {
       const token = await getStoredToken();
-      const storedUser = await getStoredUser();
-      if (!token || !storedUser || typeof storedUser !== 'object' || !('id' in storedUser)) {
-        setUser(null);
+
+      // No token: ensure clean state and show Login
+      if (!token || typeof token !== 'string' || token.trim() === '') {
+        await clearAndAbort();
         return;
       }
-      // Validate token with backend before trusting stored session (prevents stale/expired tokens)
+
+      // App version check: require re-login after app update/reinstall
+      // If no stored version (legacy session) or version mismatch, invalidate
+      const currentVersion = getCurrentAppVersion();
+      const storedVersion = await sessionStore.getAuthVersion();
+      if (storedVersion !== currentVersion) {
+        await clearAndAbort();
+        return;
+      }
+
+      // Safely parse stored user (handle corrupted JSON)
+      let storedUser: unknown = null;
+      try {
+        storedUser = await getStoredUser();
+      } catch {
+        await clearAndAbort();
+        return;
+      }
+
+      if (!storedUser || typeof storedUser !== 'object' || !('id' in storedUser)) {
+        await clearAndAbort();
+        return;
+      }
+
+      // Validate token with backend before trusting stored session
       const { api } = await import('../services/api');
       const { data } = await api.get<{ user: unknown }>('/auth/me');
+
       if (data?.user && typeof data.user === 'object' && 'id' in data.user) {
         setUser(data.user as User);
+        await sessionStore.setAuthVersion(currentVersion);
       } else {
-        setUser(null);
+        await clearAndAbort();
       }
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 401) {
-        const { clearAuthSession } = await import('../services/api');
-        await clearAuthSession();
-      }
+      // Clear session on any validation failure (401, network error, etc.)
+      await clearAuthSession();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -60,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setAuthSession(session);
       if (session.user && typeof session.user === 'object' && 'id' in session.user) {
         setUser(session.user as User);
+        await sessionStore.setAuthVersion(getCurrentAppVersion());
       }
     },
     [],

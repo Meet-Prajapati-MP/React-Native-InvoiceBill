@@ -32,9 +32,6 @@ export function PaymentWebView({
   const handleNavigationStateChange = (navState: { url?: string }) => {
     const url = navState.url || '';
     if (url.includes('/payments/callback')) {
-      if (url.includes('success') || !url.includes('fail')) {
-        onSuccess?.();
-      }
       setLoading(false);
     }
   };
@@ -44,7 +41,7 @@ export function PaymentWebView({
     if (data === 'PAYMENT_SUCCESS') {
       onSuccess?.();
       onClose();
-    } else if (data === 'PAYMENT_CLOSE') {
+    } else if (data === 'PAYMENT_FAILED' || data === 'PAYMENT_CLOSE') {
       onClose();
     }
   };

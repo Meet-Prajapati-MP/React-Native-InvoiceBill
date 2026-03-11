@@ -4,6 +4,7 @@ const KEYS = {
   ACCESS_TOKEN: 'access_token',
   REFRESH_TOKEN: 'refresh_token',
   USER: 'user',
+  AUTH_APP_VERSION: 'auth_app_version',
 } as const;
 
 export interface StoredSession {
@@ -30,7 +31,20 @@ export const sessionStore = {
   },
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([KEYS.ACCESS_TOKEN, KEYS.REFRESH_TOKEN, KEYS.USER]);
+    await AsyncStorage.multiRemove([
+      KEYS.ACCESS_TOKEN,
+      KEYS.REFRESH_TOKEN,
+      KEYS.USER,
+      KEYS.AUTH_APP_VERSION,
+    ]);
+  },
+
+  async setAuthVersion(version: string): Promise<void> {
+    await AsyncStorage.setItem(KEYS.AUTH_APP_VERSION, version);
+  },
+
+  async getAuthVersion(): Promise<string | null> {
+    return AsyncStorage.getItem(KEYS.AUTH_APP_VERSION);
   },
 
   async getToken(): Promise<string | null> {
