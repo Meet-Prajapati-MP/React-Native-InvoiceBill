@@ -8,8 +8,8 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { api } from './api';
 
-/** EAS project ID – fallback when Constants doesn't expose it (Expo Go, some builds) */
-const EAS_PROJECT_ID = '3774e015-5ef5-4a07-97e8-3d966b289569';
+/** EAS project ID – must match app.json extra.eas.projectId for valid push tokens */
+const EAS_PROJECT_ID = '9de272ac-7514-4414-9d49-77c2bda11b08';
 
 /** Request permission, get token only if granted. Returns null if denied/emulator/error. Never throws. */
 export async function getExpoPushTokenAsync(): Promise<string | null> {

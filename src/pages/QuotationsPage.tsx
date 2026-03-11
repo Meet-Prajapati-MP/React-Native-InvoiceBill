@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -151,6 +151,8 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
   const [showSortPanel, setShowSortPanel] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const lastFetchedRefreshKeyRef = useRef<number>(-1);
+  const hasLoadedOnceRef = useRef(false);
 
   const fetchQuotations = useCallback(async () => {
     try {
@@ -166,20 +168,25 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
     }
   }, []);
 
-  const doFetch = useCallback(async () => {
-    setLoading(true);
+  const doFetch = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     await fetchQuotations();
-    setLoading(false);
+    if (showLoading) setLoading(false);
+    hasLoadedOnceRef.current = true;
   }, [fetchQuotations]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchQuotations();
+    await doFetch(false);
     setRefreshing(false);
-  }, [fetchQuotations]);
+  }, [doFetch]);
 
   useEffect(() => {
-    doFetch();
+    if (refreshKey !== lastFetchedRefreshKeyRef.current) {
+      lastFetchedRefreshKeyRef.current = refreshKey;
+      const isInitialLoad = !hasLoadedOnceRef.current;
+      doFetch(isInitialLoad);
+    }
   }, [doFetch, refreshKey]);
 
   const getStatusStyle = (s: string) => {

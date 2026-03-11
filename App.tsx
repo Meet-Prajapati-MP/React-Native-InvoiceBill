@@ -433,29 +433,29 @@ function AppContent() {
       <PushRegistration isAuthenticated={isAuthenticated} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          {activeTab === 'home' && (
+          <View style={[styles.tabPane, activeTab !== 'home' && styles.tabPaneHidden]}>
             <HomePage
               onNavigate={handleNavigate}
               onOpenNotifications={() => setShowNotifications(true)}
               onSelectTransaction={setSelectedTransaction}
               onOpenScanQR={() => setShowScanQR(true)}
             />
-          )}
-          {activeTab === 'invoices' && (
+          </View>
+          <View style={[styles.tabPane, activeTab !== 'invoices' && styles.tabPaneHidden]}>
             <InvoicesPage
               onCreateInvoice={() => requireAuth(() => setShowSendInvoice(true))}
               onSelectInvoice={setSelectedInvoice}
               refreshKey={invoicesRefreshKey}
             />
-          )}
-          {activeTab === 'quotes' && (
+          </View>
+          <View style={[styles.tabPane, activeTab !== 'quotes' && styles.tabPaneHidden]}>
             <QuotationsPage
               onCreateQuote={() => requireAuth(() => setShowCreateQuotation(true))}
               onSelectQuote={setSelectedQuote}
               refreshKey={quotationsRefreshKey}
             />
-          )}
-          {activeTab === 'customers' && (
+          </View>
+          <View style={[styles.tabPane, activeTab !== 'customers' && styles.tabPaneHidden]}>
             <CustomersPage
               onSelectCustomer={setSelectedCustomer}
               refreshKey={customersRefreshKey}
@@ -467,8 +467,8 @@ function AppContent() {
                 return true;
               }}
             />
-          )}
-          {activeTab === 'menu' && (
+          </View>
+          <View style={[styles.tabPane, activeTab !== 'menu' && styles.tabPaneHidden]}>
             <MenuPage
               onNavigate={handleNavigate}
               onOpenProfile={() => setShowMyProfile(true)}
@@ -490,7 +490,7 @@ function AppContent() {
               onLogOut={() => setShowLogoutConfirm(true)}
               onSignIn={() => setShowSignIn(true)}
             />
-          )}
+          </View>
 
           <BottomNav
             activeTab={activeTab}
@@ -775,6 +775,19 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     backgroundColor: colors.white,
+  },
+  tabPane: {
+    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  tabPaneHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+    zIndex: -1,
   },
   modalOverlay: {
     flex: 1,

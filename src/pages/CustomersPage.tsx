@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator, Image, AppState, AppStateStatus } from 'react-native';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, TextInput, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
 import { Input } from '../components/ui/Input';
@@ -66,6 +66,9 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+  const lastFetchedRefreshKeyRef = useRef<number>(-1);
+  const hasLoadedOnceRef = useRef(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleDeleteCustomer = useCallback((customer: Customer) => {
     setDeleteConfirm(customer);
@@ -112,9 +115,9 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
     }
   }, []);
 
-  const fetchCustomers = useCallback(async () => {
+  const doFetch = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
-      setLoading(true);
       setError(null);
       const { data } = await api.get<unknown[]>('/customers');
       const list = Array.isArray(data) ? data.map(toCustomer) : [];
@@ -122,21 +125,24 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
     } catch {
       setCustomers([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
+    hasLoadedOnceRef.current = true;
   }, []);
 
   useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers, refreshKey]);
+    if (refreshKey !== lastFetchedRefreshKeyRef.current) {
+      lastFetchedRefreshKeyRef.current = refreshKey;
+      const isInitialLoad = !hasLoadedOnceRef.current;
+      doFetch(isInitialLoad);
+    }
+  }, [doFetch, refreshKey]);
 
-  // Refetch when app returns from background (handles "disappearing after hours")
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState === 'active') fetchCustomers();
-    });
-    return () => sub.remove();
-  }, [fetchCustomers]);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await doFetch(false);
+    setRefreshing(false);
+  }, [doFetch]);
 
   const filtered = customers.filter(
     c =>
@@ -245,7 +251,13 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
       {error && !loading && (
         <Text style={styles.errorText}>{error}</Text>
       )}
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.purple]} tintColor={colors.purple} />
+        }
+      >
         {sortedLetters.map((letter, letterIdx) => (
           <AnimatedSection key={letter} index={letterIdx} delay={0}>
           <View style={styles.group}>

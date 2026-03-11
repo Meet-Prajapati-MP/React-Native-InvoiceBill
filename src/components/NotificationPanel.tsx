@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,7 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [markingRead, setMarkingRead] = useState<string | null>(null);
   const { refreshUnreadCount } = useNotifications();
+  const hasLoadedOnceRef = useRef(false);
 
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -95,9 +96,12 @@ export function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
   }, [refreshUnreadCount]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasLoadedOnceRef.current) {
       setLoading(true);
-      fetchNotifications().finally(() => setLoading(false));
+      fetchNotifications().finally(() => {
+        setLoading(false);
+        hasLoadedOnceRef.current = true;
+      });
     }
   }, [isOpen, fetchNotifications]);
 

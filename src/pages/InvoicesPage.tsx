@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -205,6 +205,8 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const lastFetchedRefreshKeyRef = useRef<number>(-1);
+  const hasLoadedOnceRef = useRef(false);
 
   const extractList = (res: unknown): unknown[] => {
     if (Array.isArray(res)) return res;
@@ -249,20 +251,25 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
     }
   }, []);
 
-  const doFetch = useCallback(async () => {
-    setLoading(true);
+  const doFetch = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     await Promise.all([fetchInvoices(), fetchRecurringInvoices()]);
-    setLoading(false);
+    if (showLoading) setLoading(false);
+    hasLoadedOnceRef.current = true;
   }, [fetchInvoices, fetchRecurringInvoices]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await doFetch();
+    await doFetch(false);
     setRefreshing(false);
   }, [doFetch]);
 
   useEffect(() => {
-    doFetch();
+    if (refreshKey !== lastFetchedRefreshKeyRef.current) {
+      lastFetchedRefreshKeyRef.current = refreshKey;
+      const isInitialLoad = !hasLoadedOnceRef.current;
+      doFetch(isInitialLoad);
+    }
   }, [doFetch, refreshKey]);
 
   const getStatusStyle = (status: string) => {

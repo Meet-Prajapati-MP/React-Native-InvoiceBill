@@ -119,6 +119,14 @@ export function SendInvoice({
       setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
       return;
     }
+    const cust = selectedCustomer as { phone?: string; email?: string };
+    if (!(cust.phone?.trim() || cust.email?.trim())) {
+      setAlertDialog({
+        title: 'Error',
+        message: 'Customer must have a phone or email so the receiver can see this invoice.',
+      });
+      return;
+    }
     const validItems = items.filter((i) => i.name?.trim());
     if (validItems.length === 0) {
       setAlertDialog({ title: 'Error', message: 'Please add at least one item with a name.' });
