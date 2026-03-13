@@ -24,5 +24,9 @@ CREATE POLICY "Users can manage own push tokens"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- Ensure last_used and updated_at exist (if table was created with minimal schema)
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS last_used TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Add expo_push_token to profiles (legacy/fallback)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS expo_push_token TEXT;
