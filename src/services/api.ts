@@ -30,8 +30,15 @@ api.interceptors.response.use(
       error.code === 'ECONNABORTED' ||
       error.code === 'ERR_NETWORK';
 
+    // Only retry GET requests on network error – POST/PUT/PATCH/DELETE can create duplicates
+    const method = (originalRequest.method ?? 'get').toUpperCase();
+    const isIdempotent = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
     const retryCount = originalRequest._networkRetryCount ?? 0;
-    if (isNetworkError && retryCount < MAX_NETWORK_RETRIES) {
+    if (
+      isNetworkError &&
+      isIdempotent &&
+      retryCount < MAX_NETWORK_RETRIES
+    ) {
       originalRequest._networkRetryCount = retryCount + 1;
       await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       return api(originalRequest);

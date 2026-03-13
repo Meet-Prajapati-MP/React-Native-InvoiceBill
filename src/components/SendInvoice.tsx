@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -81,6 +81,7 @@ export function SendInvoice({
   const [notifyDaysBefore, setNotifyDaysBefore] = useState('3');
   const [isSending, setIsSending] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+  const submitInProgress = useRef(false);
   const invoiceSettings = useInvoiceSettings();
 
   useEffect(() => {
@@ -115,6 +116,7 @@ export function SendInvoice({
   };
 
   const handleSendInvoice = async () => {
+    if (submitInProgress.current) return;
     if (!selectedCustomer) {
       setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
       return;
@@ -149,20 +151,27 @@ export function SendInvoice({
         sort_order: idx,
       })),
     };
+    submitInProgress.current = true;
+    setIsSending(true);
     try {
-      setIsSending(true);
       await api.post('/invoices', payload);
       onSuccess?.();
+      onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string }; message?: string }; message?: string })
-        ?.response?.data?.message ?? (err as { message?: string })?.message ?? 'Failed to create invoice.';
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      let msg = e?.response?.data?.message ?? e?.message ?? 'Failed to create invoice.';
+      if (msg === 'Network Error' || (e as { code?: string })?.code === 'ECONNABORTED') {
+        msg = 'Unable to connect. Please check your internet connection and try again.';
+      }
       setAlertDialog({ title: 'Error', message: msg });
     } finally {
       setIsSending(false);
+      submitInProgress.current = false;
     }
   };
 
   const handleCreateRecurringInvoice = async () => {
+    if (submitInProgress.current) return;
     if (!selectedCustomer) {
       setAlertDialog({ title: 'Error', message: 'Please select a customer.' });
       return;
@@ -213,17 +222,22 @@ export function SendInvoice({
         sort_order: idx,
       })),
     };
+    submitInProgress.current = true;
+    setIsSending(true);
     try {
-      setIsSending(true);
       await api.post('/recurring-invoices', payload);
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } }; message?: string })
-        ?.response?.data?.message ?? (err as { message?: string })?.message ?? 'Failed to create recurring invoice.';
+      const e = err as { response?: { data?: { message?: string } }; message?: string; code?: string };
+      let msg = e?.response?.data?.message ?? e?.message ?? 'Failed to create recurring invoice.';
+      if (msg === 'Network Error' || e?.code === 'ECONNABORTED') {
+        msg = 'Unable to connect. Please check your internet connection and try again.';
+      }
       setAlertDialog({ title: 'Error', message: msg });
     } finally {
       setIsSending(false);
+      submitInProgress.current = false;
     }
   };
 
