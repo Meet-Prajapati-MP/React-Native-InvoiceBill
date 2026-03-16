@@ -75,7 +75,7 @@ export function PaymentWebView({
           domStorageEnabled
           startInLoadingState
           scalesPageToFit
-          originWhitelist={['*']}
+          originWhitelist={['https://*', 'http://localhost*', 'http://10.0.2.2*']}
         />
       </View>
     </Modal>

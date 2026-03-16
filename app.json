@@ -27,6 +27,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.meetprajapati.invoicebilltrustopay",
+      "allowBackup": false,
       "permissions": [
         "android.permission.READ_CONTACTS",
         "android.permission.WRITE_CONTACTS",
@@ -85,7 +86,8 @@
         {
           "photosPermission": "Allow Trustopay to access your photos to set your profile picture."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

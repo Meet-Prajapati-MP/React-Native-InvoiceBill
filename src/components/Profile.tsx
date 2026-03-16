@@ -344,7 +344,7 @@ export function CustomerProfile({
               <TouchableOpacity style={styles.attachClose} onPress={() => setShowAttachment(null)}>
                 <Ionicons name="close" size={24} color={colors.white} />
               </TouchableOpacity>
-              <Image source={{ uri: showAttachment }} style={styles.attachImage} resizeMode="contain" />
+              <Image source={{ uri: showAttachment }} style={styles.attachImage} resizeMode="contain" onError={() => setShowAttachment(null)} />
               <Button variant="outline" style={styles.downloadBtn}>
                 <Ionicons name="download-outline" size={16} color={colors.white} />
                 <Text style={styles.downloadText}> Download</Text>
@@ -368,7 +368,7 @@ export function CustomerProfile({
                   style={[styles.attachBubble, item.direction === 'out' && styles.attachBubbleRight]}
                   onPress={() => item.attachmentUrl && setShowAttachment(item.attachmentUrl)}
                 >
-                  <Image source={{ uri: item.attachmentUrl }} style={styles.attachThumb} />
+                  <Image source={{ uri: item.attachmentUrl }} style={styles.attachThumb} onError={() => {}} />
                   <View style={[styles.attachCaption, item.direction === 'out' ? styles.attachCaptionOut : styles.attachCaptionIn]}>
                     <Ionicons name="image-outline" size={14} color={colors.gray400} />
                     <Text style={styles.attachName} numberOfLines={1}>{item.attachmentName}</Text>

@@ -140,7 +140,11 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
             <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
                 {profile?.avatar_url ? (
-                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                  <Image
+                    source={{ uri: profile.avatar_url }}
+                    style={styles.avatarImage}
+                    onError={() => {}}
+                  />
                 ) : (
                   <Text style={styles.avatarText}>{getInitials(fullName || profile?.full_name)}</Text>
                 )}

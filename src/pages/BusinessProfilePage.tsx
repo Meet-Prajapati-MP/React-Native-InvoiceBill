@@ -430,7 +430,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                           <View style={styles.logoContent}>
                             {logo ? (
                               <>
-                                <Image source={{ uri: logo }} style={styles.logoPreview} resizeMode="contain" />
+                                <Image source={{ uri: logo }} style={styles.logoPreview} resizeMode="contain" onError={() => setLogo(null)} />
                                 <View style={styles.logoActions}>
                                   <Button variant="outline" onPress={handleLogoUpload} style={styles.logoBtn}>
                                     Change Logo
@@ -588,7 +588,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                 >
                   <View style={styles.previewHeader}>
                     {accountType === 'business' && logo ? (
-                      <Image source={{ uri: logo }} style={styles.previewLogo} />
+                      <Image source={{ uri: logo }} style={styles.previewLogo} onError={() => {}} />
                     ) : (
                       <View style={styles.previewPlaceholder}>
                         <Text style={styles.previewPlaceholderText}>
@@ -653,7 +653,7 @@ export function BusinessProfilePage({ isOpen, onClose }: BusinessProfilePageProp
                     <View style={styles.invoiceTopSection}>
                       <View style={styles.invoiceSender}>
                         {accountType === 'business' && (showLogoSection && logo) ? (
-                          <Image source={{ uri: logo }} style={styles.invoiceAvatar} resizeMode="contain" />
+                          <Image source={{ uri: logo }} style={styles.invoiceAvatar} resizeMode="contain" onError={() => {}} />
                         ) : (
                           <View style={styles.invoiceAvatarPlaceholder}>
                             <Text style={styles.invoiceAvatarText}>

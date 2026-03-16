@@ -48,6 +48,7 @@ import { PaymentWebView } from './src/components/PaymentWebView';
 import { ConfirmDialog } from './src/components/ui/ConfirmDialog';
 import { colors } from './src/theme/colors';
 import { SplashScreen } from './src/components/SplashScreen';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { api } from './src/services/api';
 import { useAppBackHandler } from './src/hooks/useAppBackHandler';
 import { SocketManager } from './src/components/SocketManager';
@@ -855,12 +856,14 @@ const styles = StyleSheet.create({
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <InvoiceSettingsProvider>
-          <AppContent />
-        </InvoiceSettingsProvider>
-      </NotificationProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <NotificationProvider>
+          <InvoiceSettingsProvider>
+            <AppContent />
+          </InvoiceSettingsProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
