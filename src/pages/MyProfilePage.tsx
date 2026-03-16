@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { AlertDialog } from '../components/ui/AlertDialog';
@@ -53,11 +54,16 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
       });
       if (result.canceled || !result.assets?.[0]?.uri) return;
       const uri = result.assets[0].uri;
-      const response = await fetch(uri);
+      // Resize to max 512px to reduce payload (avoids "request entity too large")
+      const manipulated = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 512 } }], {
+        compress: 0.7,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+      const response = await fetch(manipulated.uri);
       const blob = await response.blob();
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
