@@ -9,7 +9,9 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { AlertDialog } from '../components/ui/AlertDialog';
@@ -37,7 +39,43 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
   const [email, setEmail] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
+
+  const handlePickPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setAlertDialog({ title: 'Permission needed', message: 'Please allow access to your photos to set a profile picture.' });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const uri = result.assets[0].uri;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      setUploading(true);
+      await api.post('/profiles/me/avatar', { imageBase64: base64 });
+      await refreshProfile();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      const msg = err?.response?.data?.message || err?.message || 'Failed to update photo.';
+      setAlertDialog({ title: 'Error', message: msg });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && profile) {
@@ -95,10 +133,22 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrap}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(fullName || profile?.full_name)}</Text>
+                {profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(fullName || profile?.full_name)}</Text>
+                )}
               </View>
-              <TouchableOpacity style={styles.cameraBtn}>
-                <Ionicons name="camera" size={16} color={colors.white} />
+              <TouchableOpacity
+                style={[styles.cameraBtn, uploading && styles.cameraBtnDisabled]}
+                onPress={handlePickPhoto}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="camera" size={16} color={colors.white} />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -224,6 +274,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontSize: 36, fontWeight: '700', color: colors.white },
+  avatarImage: { width: 96, height: 96, borderRadius: 48 },
   cameraBtn: {
     position: 'absolute',
     bottom: 0,
@@ -237,6 +288,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.white,
   },
+  cameraBtnDisabled: { opacity: 0.7 },
   form: { marginBottom: 24 },
   infoCard: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useProfile, getInitials } from '../context/ProfileContext';
 import { colors } from '../theme/colors';
@@ -75,7 +75,11 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
         activeOpacity={0.7}
       >
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
+          )}
         </View>
         <View style={styles.profileInfo}>
           <Text style={styles.name}>{displayName}</Text>
@@ -174,6 +178,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   avatarText: { fontSize: 20, fontWeight: '700', color: colors.purple },
+  avatarImage: { width: 56, height: 56, borderRadius: 28 },
   name: { fontSize: 18, fontWeight: '700', color: colors.navy },
   email: { fontSize: 14, color: colors.gray500 },
   phone: { fontSize: 14, color: colors.gray500, marginTop: 2 },
