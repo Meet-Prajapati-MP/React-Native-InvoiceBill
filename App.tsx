@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { ProfileProvider } from './src/context/ProfileContext';
+import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import { BalanceProvider } from './src/context/BalanceContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 import { InvoiceSettingsProvider } from './src/context/InvoiceSettingsContext';
@@ -61,6 +61,7 @@ const ONBOARDING_SEEN_KEY = 'ONBOARDING_SEEN';
 
 function AppContent() {
   const { isAuthenticated, logout, isLoading, setAuthFromSession } = useAuth();
+  const { profile } = useProfile();
   const { refreshUnreadCount } = useNotifications();
   const [showSplash, setShowSplash] = useState(true);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
@@ -96,6 +97,7 @@ function AppContent() {
   const [showPaymentWebView, setShowPaymentWebView] = useState(false);
   const [paymentRedirectUrl, setPaymentRedirectUrl] = useState('');
   const [paymentError, setPaymentError] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 3000);
@@ -235,6 +237,7 @@ function AppContent() {
       showPaymentWebView: () => {
         setShowPaymentWebView(false);
         setPaymentRedirectUrl('');
+        setPaymentError('');
         setSelectedInvoice(null);
       },
       showVerificationCenter: () => setShowVerificationCenter(false),
@@ -428,7 +431,6 @@ function AppContent() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-      <ProfileProvider>
       <BalanceProvider>
       <SocketManager />
       <PushRegistration isAuthenticated={isAuthenticated} />
@@ -461,6 +463,7 @@ function AppContent() {
             <CustomersPage
               onSelectCustomer={setSelectedCustomer}
               refreshKey={customersRefreshKey}
+              onCustomerAdded={() => setCustomersRefreshKey((k) => k + 1)}
               onBeforeAddCustomer={() => {
                 if (!isAuthenticated) {
                   setShowSignIn(true);
@@ -543,7 +546,7 @@ function AppContent() {
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Invoice</Text>
-              <TouchableOpacity onPress={() => setSelectedInvoice(null)}>
+              <TouchableOpacity onPress={() => { setSelectedInvoice(null); setPaymentError(''); }}>
                 <Text style={styles.closeBtn}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -558,32 +561,90 @@ function AppContent() {
                 ) : null}
                 {selectedInvoice.status === 'pending' && selectedInvoice.type === 'sent' && (
                   <TouchableOpacity
-                    style={styles.payBtn}
+                    style={[styles.payBtn, paymentLoading && styles.payBtnDisabled]}
+                    disabled={paymentLoading}
                     onPress={async () => {
                       setPaymentError('');
-                      const email = selectedInvoice.customerEmail || 'payer@example.com';
-                      const phone = selectedInvoice.customerPhone || '9999999999';
-                      if (!email || !phone) {
+                      const email = selectedInvoice.customerEmail || '';
+                      const phone = selectedInvoice.customerPhone || '';
+                      if (!email?.trim() || !phone?.trim()) {
                         setPaymentError('Add customer email & phone to collect payment');
                         return;
                       }
+                      const amt = Number(selectedInvoice.amount);
+                      if (!Number.isFinite(amt) || amt <= 0) {
+                        setPaymentError('Invalid amount');
+                        return;
+                      }
+                      setPaymentLoading(true);
                       try {
                         const { data } = await api.post<{ redirectUrl: string }>('/payments/create', {
                           invoiceId: selectedInvoice.id,
-                          payerName: selectedInvoice.client,
-                          payerEmail: email,
-                          payerMobile: phone,
-                          amount: selectedInvoice.amount,
+                          payerName: String(selectedInvoice.client || 'Customer').trim(),
+                          payerEmail: String(email).trim(),
+                          payerMobile: String(phone).replace(/\D/g, '').slice(-10) || phone,
+                          amount: amt,
                         });
-                        setPaymentRedirectUrl(data.redirectUrl);
-                        setShowPaymentWebView(true);
+                        const url = data?.redirectUrl;
+                        if (url) {
+                          setPaymentRedirectUrl(url);
+                          setShowPaymentWebView(true);
+                        } else {
+                          setPaymentError('Payment gateway did not respond. Please try again.');
+                        }
                       } catch (e: unknown) {
                         const err = e as { response?: { data?: { message?: string } }; message?: string };
                         setPaymentError(err?.response?.data?.message || err?.message || 'Failed to init payment');
+                      } finally {
+                        setPaymentLoading(false);
                       }
                     }}
                   >
-                    <Text style={styles.payBtnText}>Pay with SabPaisa</Text>
+                    <Text style={styles.payBtnText}>{paymentLoading ? 'Loading...' : 'Collect Payment'}</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedInvoice.status === 'pending' && selectedInvoice.type === 'received' && (
+                  <TouchableOpacity
+                    style={[styles.payBtn, paymentLoading && styles.payBtnDisabled]}
+                    disabled={paymentLoading}
+                    onPress={async () => {
+                      setPaymentError('');
+                      const email = profile?.email || '';
+                      const phone = profile?.phone || '';
+                      if (!email?.trim() || !phone?.trim()) {
+                        setPaymentError('Add your email & phone in Profile to pay');
+                        return;
+                      }
+                      const amt = Number(selectedInvoice.amount);
+                      if (!Number.isFinite(amt) || amt <= 0) {
+                        setPaymentError('Invalid amount');
+                        return;
+                      }
+                      setPaymentLoading(true);
+                      try {
+                        const { data } = await api.post<{ redirectUrl: string }>('/payments/create', {
+                          invoiceId: selectedInvoice.id,
+                          payerName: String(profile?.full_name || selectedInvoice.client || 'Customer').trim(),
+                          payerEmail: String(email).trim(),
+                          payerMobile: String(phone).replace(/\D/g, '').slice(-10) || phone,
+                          amount: amt,
+                        });
+                        const url = data?.redirectUrl;
+                        if (url) {
+                          setPaymentRedirectUrl(url);
+                          setShowPaymentWebView(true);
+                        } else {
+                          setPaymentError('Payment gateway did not respond. Please try again.');
+                        }
+                      } catch (e: unknown) {
+                        const err = e as { response?: { data?: { message?: string } }; message?: string };
+                        setPaymentError(err?.response?.data?.message || err?.message || 'Failed to init payment');
+                      } finally {
+                        setPaymentLoading(false);
+                      }
+                    }}
+                  >
+                    <Text style={styles.payBtnText}>{paymentLoading ? 'Loading...' : 'Pay Now'}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -600,6 +661,7 @@ function AppContent() {
           setSelectedInvoice(null);
         }}
         onSuccess={() => {
+          setInvoicesRefreshKey((k) => k + 1);
           setSelectedInvoice((prev: any) => (prev ? { ...prev, status: 'paid' } : null));
         }}
         redirectUrl={paymentRedirectUrl}
@@ -634,6 +696,7 @@ function AppContent() {
       <Withdraw isOpen={showWithdraw} onClose={() => setShowWithdraw(false)} />
       <SendInvoice
         isOpen={showSendInvoice}
+        customersRefreshKey={customersRefreshKey}
         onClose={() => {
           setShowSendInvoice(false);
           setPreselectedCustomerForInvoice(null);
@@ -649,6 +712,7 @@ function AppContent() {
       />
       <CreateQuotationFlow
         isOpen={showCreateQuotation}
+        customersRefreshKey={customersRefreshKey}
         onClose={() => setShowCreateQuotation(false)}
         onSuccess={async () => {
           setShowCreateQuotation(false);
@@ -762,7 +826,6 @@ function AppContent() {
 
       <StatusBar style="dark" />
       </BalanceProvider>
-      </ProfileProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -838,9 +901,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     backgroundColor: colors.purple,
     paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
     borderRadius: 12,
     alignItems: 'center',
   },
+  payBtnDisabled: { opacity: 0.6 },
   payBtnText: { fontSize: 16, fontWeight: '700', color: colors.white },
   customerAvatar: {
     width: 64,
@@ -858,11 +924,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <NotificationProvider>
-          <InvoiceSettingsProvider>
-            <AppContent />
-          </InvoiceSettingsProvider>
-        </NotificationProvider>
+        <ProfileProvider>
+          <NotificationProvider>
+            <InvoiceSettingsProvider>
+              <AppContent />
+            </InvoiceSettingsProvider>
+          </NotificationProvider>
+        </ProfileProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

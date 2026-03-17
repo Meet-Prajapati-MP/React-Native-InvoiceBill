@@ -48,10 +48,11 @@ interface CustomersPageProps {
   onSelectCustomer: (customer: Customer) => void;
   mode?: 'default' | 'select';
   onBeforeAddCustomer?: () => boolean;
+  onCustomerAdded?: () => void;
   refreshKey?: number;
 }
 
-export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddCustomer, refreshKey = 0 }: CustomersPageProps) {
+export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddCustomer, onCustomerAdded, refreshKey = 0 }: CustomersPageProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -122,8 +123,13 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
       const { data } = await api.get<unknown[]>('/customers');
       const list = Array.isArray(data) ? data.map(toCustomer) : [];
       setCustomers(list);
-    } catch {
+    } catch (e: unknown) {
       setCustomers([]);
+      const err = e as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const msg = err?.response?.data?.message
+        ? (Array.isArray(err.response.data.message) ? err.response.data.message[0] : err.response.data.message)
+        : err?.message ?? 'Failed to load customers';
+      setError(msg);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -188,6 +194,7 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
         color,
       });
       setCustomers(prev => [toCustomer(data), ...prev]);
+      onCustomerAdded?.();
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
@@ -195,6 +202,7 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
         setNewCustomerName('');
         setNewCustomerPhone('');
         setNewCustomerEmail('');
+        setError(null);
       }, 1500);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
@@ -223,6 +231,7 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
           <TouchableOpacity
             onPress={() => {
               if (onBeforeAddCustomer && !onBeforeAddCustomer()) return;
+              setError(null);
               setShowAddCustomer(true);
             }}
             style={styles.addBtn}
@@ -249,7 +258,13 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
         </View>
       )}
       {error && !loading && (
-        <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => doFetch(true)} style={styles.retryBtn}>
+            <Ionicons name="refresh-outline" size={18} color={colors.purple} />
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       )}
       <ScrollView
         style={styles.list}
@@ -291,8 +306,22 @@ export function CustomersPage({ onSelectCustomer, mode = 'default', onBeforeAddC
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Customers Yet</Text>
-            <Text style={styles.emptySub}>Tap + to add your first customer</Text>
+            <Text style={styles.emptySub}>
+              {mode === 'select' ? 'Tap below to add your first customer' : 'Tap + to add your first customer'}
+            </Text>
           </View>
+        )}
+        {mode === 'select' && !loading && (
+          <TouchableOpacity
+            onPress={() => {
+              setError(null);
+              setShowAddCustomer(true);
+            }}
+            style={styles.addNewCustomerBtn}
+          >
+            <Ionicons name="person-add-outline" size={20} color={colors.purple} />
+            <Text style={styles.addNewCustomerText}>Add new customer</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
       <View style={{ height: 100 }} />
@@ -364,18 +393,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 48,
-    paddingBottom: 16,
+    paddingTop: 56,
+    paddingBottom: 20,
   },
   searchWrapSelect: { paddingTop: 16 },
   title: { fontSize: 24, fontWeight: '700', color: colors.navy },
   addBtn: { padding: 8 },
   searchWrap: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingTop: 4,
   },
   loadingWrap: { paddingVertical: 48, alignItems: 'center' },
-  errorText: { fontSize: 14, color: colors.red500, textAlign: 'center', padding: 16 },
+  errorWrap: { paddingHorizontal: 20, paddingVertical: 16, alignItems: 'center' },
+  errorText: { fontSize: 14, color: colors.red500, textAlign: 'center', marginBottom: 12 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16 },
+  retryText: { fontSize: 14, fontWeight: '600', color: colors.purple },
   searchInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -414,11 +447,25 @@ const styles = StyleSheet.create({
   emptyImage: { width: 220, height: 220, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.navy, marginBottom: 8 },
   emptySub: { fontSize: 15, color: colors.gray500 },
+  addNewCustomerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    marginTop: 24,
+    borderWidth: 2,
+    borderColor: colors.purple,
+    borderRadius: 12,
+    borderStyle: 'dashed',
+  },
+  addNewCustomerText: { fontSize: 16, fontWeight: '600', color: colors.purple },
   modal: { flex: 1, backgroundColor: colors.white },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
+    paddingTop: 48,
     borderBottomWidth: 1,
     borderBottomColor: colors.gray100,
   },
@@ -436,7 +483,7 @@ const styles = StyleSheet.create({
   successCheck: { fontSize: 40, fontWeight: '700', color: colors.green600 },
   successTitle: { fontSize: 24, fontWeight: '700', color: colors.navy, marginBottom: 8 },
   successDesc: { fontSize: 16, color: colors.gray500, textAlign: 'center' },
-  form: { flex: 1, padding: 20 },
+  form: { flex: 1, padding: 20, paddingTop: 28 },
   pickFromContactsBtn: {
     flexDirection: 'row',
     alignItems: 'center',

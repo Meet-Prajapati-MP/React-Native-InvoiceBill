@@ -27,6 +27,7 @@ interface CreateQuotationFlowProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  customersRefreshKey?: number;
 }
 
 function toISODate(d: Date): string {
@@ -36,7 +37,7 @@ function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotationFlowProps) {
+export function CreateQuotationFlow({ isOpen, onClose, onSuccess, customersRefreshKey = 0 }: CreateQuotationFlowProps) {
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -175,6 +176,7 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess }: CreateQuotat
           <View style={styles.stepContent}>
             <CustomersPage
               mode="select"
+              refreshKey={customersRefreshKey}
               onSelectCustomer={(c) => {
                 setSelectedCustomer(c);
                 setStep(2);

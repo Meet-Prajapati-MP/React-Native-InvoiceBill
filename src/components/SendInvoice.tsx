@@ -43,6 +43,7 @@ interface SendInvoiceProps {
   onClose: () => void;
   onSuccess?: () => void;
   preselectedCustomer?: Customer | null;
+  customersRefreshKey?: number;
 }
 
 export function SendInvoice({
@@ -50,6 +51,7 @@ export function SendInvoice({
   onClose,
   onSuccess,
   preselectedCustomer,
+  customersRefreshKey = 0,
 }: SendInvoiceProps) {
   const [step, setStep] = useState(preselectedCustomer ? 2 : 1);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(preselectedCustomer || null);
@@ -338,6 +340,7 @@ export function SendInvoice({
           <View style={styles.stepContent}>
             <CustomersPage
               mode="select"
+              refreshKey={customersRefreshKey}
               onSelectCustomer={(c) => {
                 setSelectedCustomer(c);
                 setStep(2);

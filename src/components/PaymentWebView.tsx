@@ -71,11 +71,13 @@ export function PaymentWebView({
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={handleNavigationStateChange}
           onMessage={handleMessage}
+          onError={() => { setLoading(false); onClose(); }}
+          onHttpError={() => { setLoading(false); onClose(); }}
           javaScriptEnabled
           domStorageEnabled
           startInLoadingState
           scalesPageToFit
-          originWhitelist={['https://*', 'http://localhost*', 'http://10.0.2.2*']}
+          originWhitelist={['https://*', 'http://localhost*', 'http://10.0.2.2*', 'http://192.168.*', 'http://172.16.*']}
         />
       </View>
     </Modal>
