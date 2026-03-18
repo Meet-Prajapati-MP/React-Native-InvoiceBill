@@ -177,8 +177,11 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await doFetch(false);
-    setRefreshing(false);
+    try {
+      await doFetch(false);
+    } finally {
+      setRefreshing(false);
+    }
   }, [doFetch]);
 
   useEffect(() => {
@@ -400,7 +403,9 @@ export function QuotationsPage({ onCreateQuote, onSelectQuote, refreshKey = 0 }:
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Quotations Yet</Text>
-            <Text style={styles.emptySub}>Tap New to create your first quotation</Text>
+            <Text style={styles.emptySub}>
+              {tab === 'received' ? 'Pull down to refresh and check for new quotations' : 'Tap New to create your first quotation'}
+            </Text>
           </View>
         ) : isFiltered && filtered.length === 0 ? (
           <View style={styles.emptyFiltered}>
@@ -639,7 +644,7 @@ const styles = StyleSheet.create({
   },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingTop: 16 },
+  scrollContent: { padding: 20, paddingTop: 16, flexGrow: 1 },
 
   card: {
     backgroundColor: colors.white,

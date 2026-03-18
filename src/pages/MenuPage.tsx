@@ -77,6 +77,7 @@ export function MenuPage({ onNavigate, onOpenProfile, onOpenSubscription, onOpen
         <View style={styles.avatar}>
           {profile?.avatar_url ? (
             <Image
+              key={profile.avatar_url}
               source={{ uri: profile.avatar_url }}
               style={styles.avatarImage}
               onError={() => {}}

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,13 +18,32 @@ interface PaymentWebViewProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  onError?: (message: string) => void;
   redirectUrl: string;
 }
+
+const DETECT_SABPAISA_ERROR = `
+(function() {
+  try {
+    var body = document.body;
+    if (body && body.innerText && (
+      body.innerText.indexOf('valid Client Code') >= 0 ||
+      body.innerText.indexOf('OOPS') >= 0 && body.innerText.indexOf('Please check') >= 0
+    )) {
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PAYMENT_ERROR', message: 'Payment gateway configuration error. Please contact support.' }));
+      }
+    }
+  } catch(e) {}
+})();
+true;
+`;
 
 export function PaymentWebView({
   isOpen,
   onClose,
   onSuccess,
+  onError,
   redirectUrl,
 }: PaymentWebViewProps) {
   const [loading, setLoading] = useState(true);
@@ -37,11 +57,28 @@ export function PaymentWebView({
   };
 
   const handleMessage = (event: { nativeEvent?: { data?: string } }) => {
-    const data = event.nativeEvent?.data;
-    if (data === 'PAYMENT_SUCCESS') {
-      onSuccess?.();
-      onClose();
-    } else if (data === 'PAYMENT_FAILED' || data === 'PAYMENT_CLOSE') {
+    try {
+      const data = event.nativeEvent?.data;
+      if (data === 'PAYMENT_SUCCESS') {
+        onSuccess?.();
+        onClose();
+        return;
+      }
+      if (data === 'PAYMENT_FAILED' || data === 'PAYMENT_CLOSE') {
+        onClose();
+        return;
+      }
+      try {
+        const parsed = JSON.parse(data || '{}');
+        if (parsed.type === 'PAYMENT_ERROR') {
+          setLoading(false);
+          onError?.(parsed.message || 'Payment failed. Please try again.');
+          onClose();
+        }
+      } catch {
+        /* non-JSON message */
+      }
+    } catch {
       onClose();
     }
   };
@@ -71,6 +108,7 @@ export function PaymentWebView({
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={handleNavigationStateChange}
           onMessage={handleMessage}
+          injectedJavaScript={DETECT_SABPAISA_ERROR}
           onError={() => { setLoading(false); onClose(); }}
           onHttpError={() => { setLoading(false); onClose(); }}
           javaScriptEnabled

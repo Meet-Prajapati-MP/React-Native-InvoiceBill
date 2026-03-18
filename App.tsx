@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Modal, TouchableOpacity, Text, BackHandler, Platform } from 'react-native';
+import { View, StyleSheet, Modal, TouchableOpacity, Text, BackHandler, Platform, AppState, AppStateStatus, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -125,6 +125,19 @@ function AppContent() {
       unsubPaid();
     };
   }, [isAuthenticated, refreshUnreadCount]);
+
+  // Refetch when app comes to foreground (catches invoices/quotations created while app was backgrounded)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        setInvoicesRefreshKey((k) => k + 1);
+        setQuotationsRefreshKey((k) => k + 1);
+        setCustomersRefreshKey((k) => k + 1);
+      }
+    });
+    return () => sub.remove();
+  }, [isAuthenticated]);
 
   const markOnboardingSeen = useCallback(async () => {
     try {
@@ -663,6 +676,9 @@ function AppContent() {
         onSuccess={() => {
           setInvoicesRefreshKey((k) => k + 1);
           setSelectedInvoice((prev: any) => (prev ? { ...prev, status: 'paid' } : null));
+        }}
+        onError={(msg) => {
+          Alert.alert('Payment Error', msg || 'Payment could not be completed. Please try again or contact support.');
         }}
         redirectUrl={paymentRedirectUrl}
       />

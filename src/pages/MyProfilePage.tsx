@@ -141,6 +141,7 @@ export function MyProfilePage({ isOpen, onClose }: MyProfilePageProps) {
               <View style={styles.avatar}>
                 {profile?.avatar_url ? (
                   <Image
+                    key={profile.avatar_url}
                     source={{ uri: profile.avatar_url }}
                     style={styles.avatarImage}
                     onError={() => {}}

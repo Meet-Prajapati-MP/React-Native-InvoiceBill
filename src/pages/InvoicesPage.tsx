@@ -260,8 +260,13 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await doFetch(false);
-    setRefreshing(false);
+    try {
+      await doFetch(false);
+    } catch {
+      setFetchError('Refresh failed. Pull down to try again.');
+    } finally {
+      setRefreshing(false);
+    }
   }, [doFetch]);
 
   useEffect(() => {
@@ -575,7 +580,7 @@ export function InvoicesPage({ onCreateInvoice, onSelectInvoice, refreshKey = 0 
           <View style={styles.emptyWrap}>
             <Image source={require('../../assets/empty.png')} style={styles.emptyImage} resizeMode="contain" />
             <Text style={styles.emptyTitle}>No Invoices Yet</Text>
-            <Text style={styles.emptySub}>Tap New to create your first invoice</Text>
+            <Text style={styles.emptySub}>Pull down to refresh and check for new invoices</Text>
           </View>
         )}
         {mainTab === 'received' &&
@@ -1084,7 +1089,7 @@ const styles = StyleSheet.create({
     color: colors.gray500,
   },
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 },
+  scrollContent: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, flexGrow: 1 },
   card: {
     backgroundColor: colors.white,
     borderRadius: 16,
