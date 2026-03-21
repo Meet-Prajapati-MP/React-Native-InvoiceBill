@@ -4,6 +4,9 @@
   "main": "index.ts",
   "scripts": {
     "generate:icon": "node scripts/round-icon.js",
+    "build:android": "eas build --platform android --profile production",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "build:ios": "eas build --platform ios --profile production",
     "start": "expo start --tunnel",
     "start:lan": "expo start",
     "firewall": "powershell -ExecutionPolicy Bypass -File scripts/allow-backend-firewall.ps1",

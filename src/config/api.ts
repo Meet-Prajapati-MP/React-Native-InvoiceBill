@@ -13,6 +13,7 @@ const getDevApiBase = () => {
   return 'http://localhost:3000';
 };
 
+// Public API URL - not a secret. EXPO_PUBLIC_API_URL overrides this when set (e.g. in eas.json).
 const PROD_URL = envUrl || 'https://invoice-back-production-5762.up.railway.app';
 
 export const API_BASE = __DEV__ ? getDevApiBase() : PROD_URL.replace(/\/$/, '');
