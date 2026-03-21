@@ -45,7 +45,9 @@ export function SignInPage({ onSuccess, onBack, onCreateAccount, onForgotPasswor
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
       let msg: string | null = null;
-      if (err?.response?.data?.message) {
+      if (err?.response?.status === 429) {
+        msg = 'Too many attempts. Please try again in 15 minutes.';
+      } else if (err?.response?.data?.message) {
         const m = err.response.data.message;
         msg = Array.isArray(m) ? m[0] : m;
       } else if (err?.message) {

@@ -49,9 +49,15 @@ export function ForgotPasswordPage({
       await api.post('/auth/forgot-password', { email: trimmed });
       setSent(true);
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string | string[] } } };
-      const msg = err?.response?.data?.message;
-      setError(Array.isArray(msg) ? msg[0] : msg || 'Failed to send reset link. Please try again.');
+      const err = e as { response?: { data?: { message?: string | string[] }; status?: number } };
+      let msg: string;
+      if (err?.response?.status === 429) {
+        msg = 'Too many attempts. Please try again in 15 minutes.';
+      } else {
+        const m = err?.response?.data?.message;
+        msg = Array.isArray(m) ? m[0] : m || 'Failed to send reset link. Please try again.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
