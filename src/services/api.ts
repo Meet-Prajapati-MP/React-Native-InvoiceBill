@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { API_BASE } from '../config/api';
+import { emitSessionCleared } from './authSessionEvents';
 import { sessionStore } from './sessionStore';
 
 const MAX_NETWORK_RETRIES = 2;
@@ -63,7 +64,11 @@ api.interceptors.response.use(
           }
         } catch {
           await sessionStore.clear();
+          emitSessionCleared();
         }
+      } else {
+        await sessionStore.clear();
+        emitSessionCleared();
       }
     }
     return Promise.reject(error);

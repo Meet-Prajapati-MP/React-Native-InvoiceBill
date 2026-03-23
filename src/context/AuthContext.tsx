@@ -7,6 +7,7 @@ import {
   setAuthSession,
   sessionStore,
 } from '../services/api';
+import { onSessionCleared } from '../services/authSessionEvents';
 
 interface User {
   id: string;
@@ -95,6 +96,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    const unsub = onSessionCleared(() => {
+      clearAuthSession();
+      setUser(null);
+    });
+    return unsub;
+  }, []);
 
   const setAuthFromSession = useCallback(
     async (session: { access_token: string; refresh_token?: string; user?: unknown }) => {
