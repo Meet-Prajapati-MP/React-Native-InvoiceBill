@@ -37,10 +37,28 @@ function toISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function getDefaultFormState() {
+  return {
+    step: 1 as const,
+    selectedCustomer: null as any,
+    quoteNumber: 'QUO-007',
+    quoteDate: toISODate(new Date()),
+    validUntil: toISODate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+    notes: '',
+    includeGST: true,
+    discount: '',
+    items: [{ id: 1, name: '', qty: 1, rate: 0 }] as { id: number; name: string; qty: number; rate: number }[],
+    showSavedItems: false,
+    sendViaWhatsApp: false,
+    sendViaEmail: false,
+  };
+}
+
 export function CreateQuotationFlow({ isOpen, onClose, onSuccess, customersRefreshKey = 0 }: CreateQuotationFlowProps) {
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  /** Which action is in progress — only that button shows loading */
+  const [savingAction, setSavingAction] = useState<'draft' | 'sent' | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ title: string; message: string } | null>(null);
 
   const [quoteNumber, setQuoteNumber] = useState('QUO-007');
@@ -64,10 +82,34 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess, customersRefre
   const [sendViaEmail, setSendViaEmail] = useState(false);
   const invoiceSettings = useInvoiceSettings();
 
+  // Always start at "select customer" with a fresh form when opening New Quotation
   useEffect(() => {
-    if (isOpen) {
-      invoiceSettings?.getNextQuoteNumber().then((num) => setQuoteNumber(num));
-    }
+    if (!isOpen) return;
+    const d = getDefaultFormState();
+    setStep(d.step);
+    setSelectedCustomer(d.selectedCustomer);
+    setSavingAction(null);
+    setQuoteDate(d.quoteDate);
+    setValidUntil(d.validUntil);
+    setNotes(d.notes);
+    setIncludeGST(d.includeGST);
+    setDiscount(d.discount);
+    setItems(d.items);
+    setShowSavedItems(d.showSavedItems);
+    setSendViaWhatsApp(d.sendViaWhatsApp);
+    setSendViaEmail(d.sendViaEmail);
+    setQuoteNumber(d.quoteNumber);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    invoiceSettings?.getNextQuoteNumber().then((num) => {
+      if (!cancelled) setQuoteNumber(num);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, invoiceSettings]);
 
   const addItem = () => {
@@ -128,15 +170,15 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess, customersRefre
       })),
     };
     try {
-      setIsSaving(true);
+      setSavingAction(status);
       await api.post('/quotations', payload);
       onSuccess?.();
       onClose();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Failed to save quotation.';
-      setAlertDialog({ title: 'Error', message: msg });
+      setAlertDialog({ title: 'Error', message: typeof msg === 'string' ? msg : 'Failed to save quotation.' });
     } finally {
-      setIsSaving(false);
+      setSavingAction(null);
     }
   };
 
@@ -454,17 +496,21 @@ export function CreateQuotationFlow({ isOpen, onClose, onSuccess, customersRefre
               <Button
                 variant="outline"
                 onPress={() => saveQuotation('draft')}
-                disabled={isSaving}
+                disabled={savingAction !== null}
                 style={styles.saveDraftBtn}
               >
-                {isSaving ? <ActivityIndicator size="small" color={colors.purple} /> : 'Save Draft'}
+                {savingAction === 'draft' ? (
+                  <ActivityIndicator size="small" color={colors.purple} />
+                ) : (
+                  'Save Draft'
+                )}
               </Button>
               <Button
                 onPress={() => saveQuotation('sent')}
-                disabled={isSaving}
+                disabled={savingAction !== null}
                 style={styles.sendBtn}
               >
-                {isSaving ? (
+                {savingAction === 'sent' ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   'Send Quote'
