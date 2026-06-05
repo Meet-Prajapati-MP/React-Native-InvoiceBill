@@ -428,6 +428,54 @@ function AppContent() {
                         onOpenScanQR={() => setShowScanQR(true)}
                       />
                     </View>
+                    <View style={[styles.tabPane, activeTab !== 'invoices' && styles.tabPaneHidden]}>
+                      <InvoicesPage
+                        onCreateInvoice={() => setShowSignIn(true)}
+                        onSelectInvoice={setSelectedInvoice}
+                        refreshKey={invoicesRefreshKey}
+                      />
+                    </View>
+                    <View style={[styles.tabPane, activeTab !== 'quotes' && styles.tabPaneHidden]}>
+                      <QuotationsPage
+                        onCreateQuote={() => setShowSignIn(true)}
+                        onSelectQuote={setSelectedQuote}
+                        refreshKey={quotationsRefreshKey}
+                      />
+                    </View>
+                    <View style={[styles.tabPane, activeTab !== 'customers' && styles.tabPaneHidden]}>
+                      <CustomersPage
+                        onSelectCustomer={setSelectedCustomer}
+                        refreshKey={customersRefreshKey}
+                        onCustomerAdded={() => setCustomersRefreshKey((k) => k + 1)}
+                        onBeforeAddCustomer={() => {
+                          setShowSignIn(true);
+                          return false;
+                        }}
+                      />
+                    </View>
+                    <View style={[styles.tabPane, activeTab !== 'menu' && styles.tabPaneHidden]}>
+                      <MenuPage
+                        onNavigate={handleNavigate}
+                        onOpenProfile={() => setShowSignIn(true)}
+                        onOpenSubscription={() => setShowSignIn(true)}
+                        onOpenBankAccounts={() => setShowSignIn(true)}
+                        onOpenActivity={() => setShowSignIn(true)}
+                        onOpenBusinessProfile={() => setShowSignIn(true)}
+                        onOpenInvoiceSettings={() => setShowSignIn(true)}
+                        onOpenTermsConditions={() => setShowSignIn(true)}
+                        onOpenMyAddresses={() => setShowSignIn(true)}
+                        onOpenSendReminders={() => setShowSignIn(true)}
+                        onOpenReportsAnalytics={() => setShowSignIn(true)}
+                        onOpenItemList={() => setShowSignIn(true)}
+                        onOpenHelpCentre={() => setShowSignIn(true)}
+                        onOpenMessageCentre={() => setShowSignIn(true)}
+                        onOpenVerificationCenter={() => setShowSignIn(true)}
+                        onOpenNotifications={() => setShowSignIn(true)}
+                        isAuthenticated={false}
+                        onLogOut={() => setShowSignIn(true)}
+                        onSignIn={() => setShowSignIn(true)}
+                      />
+                    </View>
                   </View>
                   <BottomNav
                     activeTab={activeTab}
