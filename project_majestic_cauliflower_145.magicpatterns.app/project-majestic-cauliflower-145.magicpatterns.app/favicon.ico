@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+    <!-- Published 4effe390-3d85-40b2-8e8d-08b518300368 created by Magic Patterns: https://www.magicpatterns.com/ -->
+    <html lang="en" dir="ltr" style="overflow:auto;" class="light">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <title>Trustopay Invoicing & Payments Mobile App</title>
+        <meta property="og:title" content="Trustopay Invoicing & Payments Mobile App" />
+        
+        
+        
+        <meta property="og:type" content="website" />
+        
+        <link rel="stylesheet" type="text/css" href="https://cdn.magicpatterns.com/patterns/bundles/0ab918c7-ad6c-4dbd-a25b-05f95810d122/baddeb13-af44-4d0a-904a-48b855dd9a57/index-0ab918c7-ad6c-4dbd-a25b-05f95810d122.css" crossorigin="anonymous">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+      </head>
+      <body style="margin:0;font-family:"'Inter','Inter',sans-serif;">
+        
+        
+        <div id="root"  />
+        
+        
+        
+        
+        
+        <script src="https://cdn.magicpatterns.com/patterns/bundles/0ab918c7-ad6c-4dbd-a25b-05f95810d122/baddeb13-af44-4d0a-904a-48b855dd9a57/index-0ab918c7-ad6c-4dbd-a25b-05f95810d122.js" type="module" crossorigin="anonymous" async></script>
+        <script>
+(function() {
+  // Track the last known path to avoid duplicate messages
+  let lastPath = window.location.pathname;
+
+  // Helper function to notify parent of route changes
+  function notifyRouteChange(path) {
+    if (path !== lastPath) {
+      lastPath = path;
+      window.parent.postMessage({
+        id: '044f5eb3-3d3e-4832-ae5c-54bd8d32547f',
+        type: 'ROUTE_CHANGED',
+        path: path
+      }, '*');
+    }
+  }
+
+  // Override pushState
+  const originalPushState = history.pushState;
+  history.pushState = function() {
+    originalPushState.apply(history, arguments);
+    notifyRouteChange(window.location.pathname);
+  };
+
+  // Override replaceState
+  const originalReplaceState = history.replaceState;
+  history.replaceState = function() {
+    originalReplaceState.apply(history, arguments);
+    notifyRouteChange(window.location.pathname);
+  };
+
+  // Listen for popstate (browser back/forward)
+  window.addEventListener('popstate', function() {
+    notifyRouteChange(window.location.pathname);
+  });
+
+  // Listen for hash changes
+  window.addEventListener('hashchange', function() {
+    notifyRouteChange(window.location.pathname + window.location.hash);
+  });
+
+  // Also monitor clicks for client-side routing that might not use History API
+  // This is a fallback for edge cases
+  let checkInterval;
+  document.addEventListener('click', function(e) {
+    // Clear any existing interval
+    if (checkInterval) clearInterval(checkInterval);
+
+    // Check for route changes over the next 100ms
+    let checks = 0;
+    checkInterval = setInterval(function() {
+      checks++;
+      const currentPath = window.location.pathname;
+      if (currentPath !== lastPath) {
+        notifyRouteChange(currentPath);
+        clearInterval(checkInterval);
+      }
+      // Stop checking after 10 attempts (100ms total)
+      if (checks >= 10) {
+        clearInterval(checkInterval);
+      }
+    }, 10);
+  });
+
+  // Notify parent of initial path on load
+  window.addEventListener('load', function() {
+    window.parent.postMessage({
+      id: '044f5eb3-3d3e-4832-ae5c-54bd8d32547f',
+      type: 'ROUTE_CHANGED',
+      path: window.location.pathname
+    }, '*');
+  });
+})();
+</script>
+        
+        
+        
+        
+        
+        
+      </body>
+    </html>
