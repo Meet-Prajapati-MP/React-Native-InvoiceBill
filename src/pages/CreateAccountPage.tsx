@@ -8,15 +8,12 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { colors } from '../theme/colors';
-import { useAuth } from '../context/AuthContext';
 import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
-import { API_BASE_DEBUG } from '../config/api';
 
 interface CreateAccountPageProps {
   onSuccess: () => void;
@@ -31,55 +28,10 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
 
   const handleCreateAccount = async () => {
-    if (!email.trim() || !password) {
-      setError('Please enter email and password');
-      return;
-    }
-    if (!phone.trim()) {
-      setError('Please enter your phone number');
-      return;
-    }
-    const phoneDigits = phone.replace(/\D/g, '');
-    if (phoneDigits.length < 10 || !/^[6-9]\d{9}$/.test(phoneDigits.slice(-10))) {
-      setError('Please enter a valid 10-digit Indian mobile number');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
     setError('');
-    setLoading(true);
-    try {
-      await register(email.trim(), password, name.trim() || undefined, phone.trim());
-      onSuccess();
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string | string[] }; status?: number }; message?: string; code?: string };
-      let msg: string | null = null;
-      if (err?.response?.status === 429) {
-        msg = 'Too many attempts. Please try again in 15 minutes.';
-      } else if (err?.response?.data?.message) {
-        const m = err.response.data.message;
-        msg = Array.isArray(m) ? m[0] : m;
-      } else if (err?.message) {
-        if (err.message === 'Network Error' || err?.code === 'ECONNABORTED') {
-          msg = `Cannot reach server. Backend running? Using: ${API_BASE_DEBUG}. Android emulator: use http://10.0.2.2:3000 in .env. Physical device: use http://YOUR_PC_IP:3000. Restart Expo after changing .env.`;
-        } else {
-          msg = err.message;
-        }
-      }
-      setError(msg || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    onSuccess();
   };
 
   return (
@@ -151,9 +103,8 @@ export function CreateAccountPage({ onSuccess, onBack, onSignIn }: CreateAccount
               onPress={handleCreateAccount}
               size="lg"
               style={styles.createBtn}
-              disabled={loading}
             >
-              {loading ? <ActivityIndicator color="#fff" size="small" /> : 'Create Account'}
+              Create Account
             </Button>
             <TouchableOpacity onPress={onSignIn} style={styles.switchLink}>
               <Text style={styles.switchText}>

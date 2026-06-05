@@ -68,6 +68,7 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [showSignIn, setShowSignIn] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [showGuestHome, setShowGuestHome] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [showScanQR, setShowScanQR] = useState(false);
@@ -346,6 +347,8 @@ function AppContent() {
               onSuccess={() => {
                 setShowCreateAccount(false);
                 setShowOnboarding(false);
+                setShowGuestHome(true);
+                setActiveTab('home');
               }}
               onBack={() => setShowCreateAccount(false)}
               onSignIn={() => {
@@ -407,6 +410,38 @@ function AppContent() {
         </GestureHandlerRootView>
       );
     }
+    if (showGuestHome) {
+      return (
+        <GestureHandlerRootView style={styles.root}>
+          <SafeAreaProvider>
+            <BalanceProvider>
+              <SocketManager />
+              <PushRegistration isAuthenticated={false} />
+              <SafeAreaView style={styles.safeArea}>
+                <View style={styles.container}>
+                  <View style={styles.paneWrapper}>
+                    <View style={[styles.tabPane, activeTab !== 'home' && styles.tabPaneHidden]}>
+                      <HomePage
+                        onNavigate={handleNavigate}
+                        onOpenNotifications={() => setShowNotifications(true)}
+                        onSelectTransaction={setSelectedTransaction}
+                        onOpenScanQR={() => setShowScanQR(true)}
+                      />
+                    </View>
+                  </View>
+                  <BottomNav
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    badges={{ invoices: 1, quotes: 2 }}
+                  />
+                </View>
+              </SafeAreaView>
+            </BalanceProvider>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      );
+    }
+
     // Fallback: never show home or main app when not logged in
     return (
       <GestureHandlerRootView style={styles.root}>
