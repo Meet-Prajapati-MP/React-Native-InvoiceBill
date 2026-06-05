@@ -1,0 +1,100 @@
+{
+  "expo": {
+    "name": "Trustopay",
+    "slug": "invoicebill-trustopay",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "updates": {
+      "enabled": false,
+      "checkAutomatically": "NEVER"
+    },
+    "icon": "./assets/app-icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/app-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2C264D"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.meetprajapati.invoicebilltrustopay",
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/app-icon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ],
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "datePicker": {
+              "colorAccent": {
+                "light": "#7C3AED"
+              },
+              "colorControlActivated": {
+                "light": "#7C3AED"
+              },
+              "textColorPrimary": {
+                "light": "#7C3AED"
+              }
+            }
+          }
+        }
+      ],
+      "expo-font",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Trustopay to access your contacts to quickly add customers."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Trustopay to access your photos to set your profile picture."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "27860c31-e68d-4442-ae72-fea5c649f0bf"
+      }
+    },
+    "owner": "vkmp"
+  }
+}

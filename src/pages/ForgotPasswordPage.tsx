@@ -1,0 +1,234 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { colors } from '../theme/colors';
+import { AnimatedSlideIn } from '../components/AnimatedSlideIn';
+import { api } from '../services/api';
+
+interface ForgotPasswordPageProps {
+  onSuccess: () => void;
+  onBack: () => void;
+  initialEmail?: string;
+}
+
+export function ForgotPasswordPage({
+  onSuccess,
+  onBack,
+  initialEmail = '',
+}: ForgotPasswordPageProps) {
+  const [email, setEmail] = useState(initialEmail);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleSendLink = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError('Please enter your email address');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await api.post('/auth/forgot-password', { email: trimmed });
+      setSent(true);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string | string[] }; status?: number } };
+      let msg: string;
+      if (err?.response?.status === 429) {
+        msg = 'Too many attempts. Please try again in 15 minutes.';
+      } else {
+        const m = err?.response?.data?.message;
+        msg = Array.isArray(m) ? m[0] : m || 'Failed to send reset link. Please try again.';
+      }
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <AnimatedSlideIn delay={0}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </AnimatedSlideIn>
+
+        <View style={styles.content}>
+          <AnimatedSlideIn delay={80}>
+            <View style={styles.header}>
+              <View style={styles.logoBox}>
+                <Image source={require('../../assets/app-icon.png')} style={styles.logoImage} resizeMode="contain" />
+              </View>
+              <Text style={styles.title}>Reset password</Text>
+              <Text style={styles.subtitle}>
+                {sent
+                  ? 'Check your email for the reset link. Click the link to set your new password, then sign in.'
+                  : 'Enter your email and we\'ll send you a reset link.'}
+              </Text>
+            </View>
+          </AnimatedSlideIn>
+
+          {!sent && (
+            <AnimatedSlideIn delay={160}>
+              <View style={styles.formCard}>
+                <Input
+                  label="Email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                <Button onPress={handleSendLink} disabled={loading} style={styles.sendBtn}>
+                  {loading ? <ActivityIndicator color={colors.white} size="small" /> : 'Send reset link'}
+                </Button>
+              </View>
+            </AnimatedSlideIn>
+          )}
+
+          {sent && (
+            <AnimatedSlideIn delay={160}>
+              <Button onPress={onSuccess} variant="outline" style={styles.backToSignIn}>
+                Back to sign in
+              </Button>
+            </AnimatedSlideIn>
+          )}
+        </View>
+
+        <AnimatedSlideIn delay={240}>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Crafted with ❤️ in Gujarat</Text>
+            <View style={styles.tricolor}>
+              <View style={[styles.tricolorBar, { backgroundColor: colors.saffron }]} />
+              <View style={[styles.tricolorBar, { backgroundColor: colors.white }]} />
+              <View style={[styles.tricolorBar, { backgroundColor: colors.indianGreen }]} />
+            </View>
+          </View>
+        </AnimatedSlideIn>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.navy,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 40,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  content: {
+    flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoBox: {
+    width: 64,
+    height: 64,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  logoImage: {
+    width: 40,
+    height: 40,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.white,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.purpleLight,
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  formCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.gray100,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.red500,
+    marginBottom: 16,
+  },
+  sendBtn: {
+    height: 52,
+    marginTop: 8,
+  },
+  backToSignIn: {
+    marginTop: 16,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 32,
+  },
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.purpleLight,
+    marginBottom: 10,
+    letterSpacing: 1,
+  },
+  tricolor: {
+    flexDirection: 'row',
+    width: 80,
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  tricolorBar: {
+    flex: 1,
+  },
+});
